@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from '@/components/shared/Navbar';
 import Sidebar from '@/components/shared/Sidebar';
@@ -12,6 +12,7 @@ import DriverApprovalList from '@/components/manager/DriverApprovalList';
 import VehicleList from '@/components/manager/VehicleList';
 import BranchManagement from '@/components/admin/BranchManagement';
 import UserManagement from '@/components/admin/UserManagement';
+import MyProfilePage from './MyProfilePage';
 
 function RoleHome() {
   const { role } = useAuth();
@@ -22,8 +23,7 @@ function RoleHome() {
 
 export default function DashboardPage() {
   const { role } = useAuth();
-  const { profile, loaded, fetchProfile } = useProfileStore();
-  const [modalDismissed, setModalDismissed] = useState(false);
+  const { profile, loaded, fetchProfile, completionPromptDismissed, dismissCompletionPrompt } = useProfileStore();
 
   useEffect(() => {
     fetchProfile();
@@ -31,7 +31,7 @@ export default function DashboardPage() {
   }, []);
 
   const showCompleteProfileModal =
-    loaded && profile && profile.role !== 'admin' && !profile.profileComplete && !modalDismissed;
+    loaded && profile && profile.role !== 'admin' && !profile.profileComplete && !completionPromptDismissed;
 
   return (
     <div className="flex h-screen flex-col">
@@ -41,6 +41,7 @@ export default function DashboardPage() {
         <main className="flex-1 overflow-y-auto p-6">
           <Routes>
             <Route index element={<RoleHome />} />
+            <Route path="profile" element={<MyProfilePage />} />
             {role === 'manager' && (
               <>
                 <Route path="drivers" element={<DriverApprovalList />} />
@@ -59,10 +60,7 @@ export default function DashboardPage() {
       </div>
 
       {showCompleteProfileModal && (
-        <CompleteProfileModal
-          role={profile!.role as 'driver' | 'manager'}
-          onClose={() => setModalDismissed(true)}
-        />
+        <CompleteProfileModal role={profile!.role as 'driver' | 'manager'} onClose={dismissCompletionPrompt} />
       )}
     </div>
   );

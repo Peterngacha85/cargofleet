@@ -1,19 +1,24 @@
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
-import { LayoutDashboard, Users, Truck, Building2 } from 'lucide-react';
+import { LayoutDashboard, Users, Truck, Building2, UserCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const linksByRole: Record<string, { to: string; label: string; icon: typeof LayoutDashboard }[]> = {
-  driver: [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }],
+  driver: [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
+  ],
   manager: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/dashboard/drivers', label: 'Drivers', icon: Users },
     { to: '/dashboard/vehicles', label: 'Vehicles', icon: Truck },
+    { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
   ],
   admin: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/dashboard/branches', label: 'Branches', icon: Building2 },
     { to: '/dashboard/managers', label: 'Managers', icon: Users },
+    { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
   ],
 };
 

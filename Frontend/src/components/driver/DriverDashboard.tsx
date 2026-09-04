@@ -4,6 +4,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useSocket } from '@/hooks/useSocket';
 import { api } from '@/services/api';
 import { useProfileStore } from '@/stores/profileStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import MapComponent from '@/components/map/MapComponent';
 import ActiveTrips, { TripSummary } from './ActiveTrips';
 import PerformanceCard from './PerformanceCard';
@@ -14,8 +15,19 @@ export default function DriverDashboard() {
   const [sharing, setSharing] = useState(false);
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const profile = useProfileStore((s) => s.profile);
+  const showCompletionPrompt = useProfileStore((s) => s.showCompletionPrompt);
+  const push = useNotificationStore((s) => s.push);
   const { position } = useLocation(sharing);
   const socketRef = useSocket('driver', { driverId: profile?.driver?._id ?? '' }, !!profile?.driver);
+
+  const handleToggleSharing = () => {
+    if (!profile?.profileComplete) {
+      push('Complete your profile before sharing your location.', 'warning');
+      showCompletionPrompt();
+      return;
+    }
+    setSharing((v) => !v);
+  };
 
   useEffect(() => {
     const driverId = profile?.driver?._id;
@@ -63,18 +75,18 @@ export default function DriverDashboard() {
           <p className="font-medium text-charcoal">Live Location Sharing</p>
           <p className="text-sm text-gray-500">Share your location so your branch manager can track this trip.</p>
         </div>
-        <button className="btn-primary" onClick={() => setSharing((v) => !v)}>
+        <button className="btn-primary" onClick={handleToggleSharing}>
           {sharing ? 'Stop Sharing' : 'Start Sharing'}
         </button>
-      </div>
-
-      <div className="h-80 w-full">
-        <MapComponent markers={marker} labelFor={() => user?.firstName ?? 'You'} />
       </div>
 
       <div>
         <h2 className="mb-2 font-semibold text-charcoal">Your Trips</h2>
         <ActiveTrips trips={trips} />
+      </div>
+
+      <div className="h-80 w-full">
+        <MapComponent markers={marker} labelFor={() => user?.firstName ?? 'You'} />
       </div>
     </div>
   );

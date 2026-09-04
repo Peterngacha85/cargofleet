@@ -24,6 +24,10 @@ export interface CurrentUserProfile extends AuthUser {
     status: string;
     branchId?: string;
     assignedVehicleId?: string;
+    drivingLicenseNumber: string;
+    licenseExpiry: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
     totalTrips: number;
     completedTrips: number;
     avgRating: number;

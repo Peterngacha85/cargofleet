@@ -51,8 +51,10 @@ export default function CompleteProfileModal({ role, onClose }: CompleteProfileM
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+    // z-[9999]: Leaflet's internal map panes/controls use z-index up to 1000 and aren't
+    // contained in their own stacking context, so a lower value here gets covered once the map loads.
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-lg">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 text-gray-400 hover:text-charcoal"
