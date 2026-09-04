@@ -1,5 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import Avatar from './Avatar';
 
@@ -17,11 +17,13 @@ export default function Navbar() {
       <img src="/images/logo.png" alt="CargoFleet" className="h-8 w-auto" />
       {user && (
         <div className="flex items-center gap-3 text-sm">
-          <Avatar
-            role={user.role}
-            photoUrl={user.profilePhoto}
-            name={user.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : user.email}
-          />
+          <Link to="/dashboard/profile" title="My Profile" className="transition hover:opacity-80">
+            <Avatar
+              role={user.role}
+              photoUrl={user.profilePhoto}
+              name={user.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : user.email}
+            />
+          </Link>
           <span className="capitalize text-gray-600">{user.role}</span>
           <button
             onClick={handleLogout}

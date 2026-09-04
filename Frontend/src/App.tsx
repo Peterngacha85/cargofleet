@@ -4,6 +4,7 @@ import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import ProtectedRoute from '@/components/shared/ProtectedRoute';
 import NotificationCenter from '@/components/shared/NotificationCenter';
 import LoginPage from '@/pages/LoginPage';
+import SuperAdminLoginPage from '@/pages/SuperAdminLoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
 import NotFoundPage from '@/pages/NotFoundPage';
@@ -17,6 +18,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin/login" element={<SuperAdminLoginPage />} />
             <Route path="/register/:role" element={<RegisterPage />} />
             <Route
               path="/dashboard/*"
