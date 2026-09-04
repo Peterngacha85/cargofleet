@@ -8,6 +8,17 @@ export const AuthService = {
     return data;
   },
 
+  async completeProfile(payload: {
+    phone: string;
+    drivingLicenseNumber?: string;
+    licenseExpiry?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+  }) {
+    const { data } = await api.put<ApiResponse<unknown>>('/auth/complete-profile', payload);
+    return data;
+  },
+
   async superAdminLogin(email: string, password: string, secretCode: string) {
     const { data } = await api.post<ApiResponse<LoginResponseData>>('/auth/super-admin/login', {
       email,

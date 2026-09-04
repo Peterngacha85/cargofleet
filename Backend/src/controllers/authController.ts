@@ -10,6 +10,8 @@ import { sendSuccess, sendError } from '../utils/apiResponse';
 import { config } from '../config/environment';
 import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { isValidPhone, isFutureDate } from '../utils/validators';
+import { IDriver } from '../models/Driver';
 
 const googleClient = new OAuth2Client(config.google.clientId);
 
@@ -104,6 +106,7 @@ export const standardLogin = async (req: Request, res: Response) => {
         lastName: user.lastName,
         role: user.role,
         phone: user.phone,
+        profilePhoto: user.profilePhoto,
       },
     });
   } catch (error) {
@@ -128,7 +131,8 @@ export const googleOAuthLogin = async (req: Request, res: Response) => {
       throw new Error('Invalid token payload');
     }
 
-    const { email, given_name, family_name } = payload;
+    const { given_name, family_name, picture } = payload;
+    const email = payload.email!.toLowerCase();
 
     let user = await User.findOne({ email });
 
@@ -142,6 +146,7 @@ export const googleOAuthLogin = async (req: Request, res: Response) => {
         phone: '',
         role,
         password: crypto.randomBytes(16).toString('hex'),
+        profilePhoto: picture,
       });
       await user.save();
 
@@ -160,6 +165,10 @@ export const googleOAuthLogin = async (req: Request, res: Response) => {
           status: 'pending_verification',
         });
       }
+    } else if (picture && user.profilePhoto !== picture) {
+      // Keep the avatar in sync with Google in case it changed (or was missed on first sign-up)
+      user.profilePhoto = picture;
+      await user.save();
     }
 
     if (user.role === 'driver') {
@@ -190,6 +199,7 @@ export const googleOAuthLogin = async (req: Request, res: Response) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        profilePhoto: user.profilePhoto,
       },
     });
   } catch (error) {
@@ -299,6 +309,81 @@ export const registerManager = async (req: Request, res: Response) => {
   }
 };
 
+// A Google OAuth sign-up can only ever supply name + email, so those accounts start with
+// placeholder/empty license, emergency contact, and phone fields that still need collecting.
+const isDriverProfileComplete = (phone: string | undefined, driver: IDriver | null): boolean => {
+  if (!driver) return false;
+  return (
+    !!phone &&
+    !!driver.emergencyContactName &&
+    !!driver.emergencyContactPhone &&
+    !driver.drivingLicenseNumber.startsWith('PENDING-')
+  );
+};
+
+export const completeProfile = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const authUser = req.user!;
+
+    if (authUser.role === 'admin') {
+      return sendError(res, 400, 'Super admin profiles are managed via environment configuration');
+    }
+
+    const { phone, drivingLicenseNumber, licenseExpiry, emergencyContactName, emergencyContactPhone } = req.body;
+
+    if (!phone || !isValidPhone(phone)) {
+      return sendError(res, 400, 'A valid phone number is required', { phone: 'Required' });
+    }
+
+    const user = await User.findByIdAndUpdate(authUser.id, { phone }, { new: true });
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    if (user.role === 'driver') {
+      if (!drivingLicenseNumber || !licenseExpiry || !emergencyContactName || !emergencyContactPhone) {
+        return sendError(res, 400, 'License and emergency contact details are required');
+      }
+      if (!isValidPhone(emergencyContactPhone)) {
+        return sendError(res, 400, 'Invalid emergency contact phone number', {
+          emergencyContactPhone: 'Invalid format',
+        });
+      }
+      if (!isFutureDate(licenseExpiry)) {
+        return sendError(res, 400, 'License expiry must be a future date');
+      }
+
+      const existingLicense = await Driver.findOne({
+        drivingLicenseNumber,
+        userId: { $ne: user._id },
+      });
+      if (existingLicense) {
+        return sendError(res, 409, 'License number already registered', {
+          drivingLicenseNumber: 'Already in use',
+        });
+      }
+
+      const driver = await Driver.findOneAndUpdate(
+        { userId: user._id },
+        {
+          drivingLicenseNumber,
+          licenseExpiry: new Date(licenseExpiry),
+          emergencyContactName,
+          emergencyContactPhone,
+        },
+        { new: true }
+      );
+
+      return sendSuccess(res, 200, 'Profile updated', { phone: user.phone, driver });
+    }
+
+    return sendSuccess(res, 200, 'Profile updated', { phone: user.phone });
+  } catch (error) {
+    logger.error('Complete profile error', { error });
+    return sendError(res, 500, 'Failed to update profile');
+  }
+};
+
 export const getMe = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const authUser = req.user!;
@@ -309,6 +394,7 @@ export const getMe = async (req: AuthenticatedRequest, res: Response) => {
         email: authUser.email,
         role: 'admin',
         permissions: ['*'],
+        profileComplete: true,
       });
     }
 
@@ -324,19 +410,28 @@ export const getMe = async (req: AuthenticatedRequest, res: Response) => {
       lastName: user.lastName,
       phone: user.phone,
       role: user.role,
+      profilePhoto: user.profilePhoto,
     };
 
     if (user.role === 'driver') {
       const driver = await Driver.findOne({ userId: user._id });
-      return sendSuccess(res, 200, 'Current user retrieved', { ...base, driver });
+      return sendSuccess(res, 200, 'Current user retrieved', {
+        ...base,
+        driver,
+        profileComplete: isDriverProfileComplete(user.phone, driver),
+      });
     }
 
     if (user.role === 'manager') {
       const manager = await Manager.findOne({ userId: user._id });
-      return sendSuccess(res, 200, 'Current user retrieved', { ...base, manager });
+      return sendSuccess(res, 200, 'Current user retrieved', {
+        ...base,
+        manager,
+        profileComplete: !!user.phone,
+      });
     }
 
-    return sendSuccess(res, 200, 'Current user retrieved', base);
+    return sendSuccess(res, 200, 'Current user retrieved', { ...base, profileComplete: true });
   } catch (error) {
     logger.error('Get current user error', { error });
     return sendError(res, 500, 'Failed to retrieve current user');

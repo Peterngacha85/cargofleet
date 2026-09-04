@@ -13,16 +13,18 @@ interface NotificationState {
   dismiss: (id: string) => void;
 }
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+const AUTO_DISMISS_MS = 5000;
+
+export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
 
-  push: (message, type = 'info') =>
+  push: (message, type = 'info') => {
+    const id = crypto.randomUUID();
     set((state) => ({
-      notifications: [
-        ...state.notifications,
-        { id: crypto.randomUUID(), message, type, createdAt: Date.now() },
-      ],
-    })),
+      notifications: [...state.notifications, { id, message, type, createdAt: Date.now() }],
+    }));
+    setTimeout(() => get().dismiss(id), AUTO_DISMISS_MS);
+  },
 
   dismiss: (id) =>
     set((state) => ({ notifications: state.notifications.filter((n) => n.id !== id) })),

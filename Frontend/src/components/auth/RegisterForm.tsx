@@ -11,6 +11,7 @@ import {
 import { AuthService } from '@/services/authService';
 import { useNotificationStore } from '@/stores/notificationStore';
 import PasswordInput from '@/components/shared/PasswordInput';
+import FieldLabel from '@/components/shared/FieldLabel';
 
 interface RegisterFormProps {
   role: 'driver' | 'manager';
@@ -54,47 +55,47 @@ export default function RegisterForm({ role }: RegisterFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="label">First Name</label>
+          <FieldLabel required>First Name</FieldLabel>
           <input className="input-field" {...register('firstName' as any)} />
         </div>
         <div>
-          <label className="label">Last Name</label>
+          <FieldLabel required>Last Name</FieldLabel>
           <input className="input-field" {...register('lastName' as any)} />
         </div>
       </div>
 
       <div>
-        <label className="label">Email</label>
+        <FieldLabel required>Email</FieldLabel>
         <input type="email" className="input-field" {...register('email' as any)} />
       </div>
 
       <div>
-        <label className="label">Password</label>
+        <FieldLabel required>Password</FieldLabel>
         <PasswordInput {...register('password' as any)} />
       </div>
 
       <div>
-        <label className="label">Phone</label>
+        <FieldLabel required>Phone</FieldLabel>
         <input placeholder="+254712345678" className="input-field" {...register('phone' as any)} />
       </div>
 
       {isDriver && (
         <>
           <div>
-            <label className="label">Driving License Number</label>
+            <FieldLabel required>Driving License Number</FieldLabel>
             <input className="input-field" {...register('drivingLicenseNumber' as any)} />
           </div>
           <div>
-            <label className="label">License Expiry</label>
+            <FieldLabel required>License Expiry</FieldLabel>
             <input type="date" className="input-field" {...register('licenseExpiry' as any)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Emergency Contact Name</label>
+              <FieldLabel required>Emergency Contact Name</FieldLabel>
               <input className="input-field" {...register('emergencyContactName' as any)} />
             </div>
             <div>
-              <label className="label">Emergency Contact Phone</label>
+              <FieldLabel required>Emergency Contact Phone</FieldLabel>
               <input className="input-field" {...register('emergencyContactPhone' as any)} />
             </div>
           </div>

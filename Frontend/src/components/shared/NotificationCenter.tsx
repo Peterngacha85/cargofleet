@@ -1,5 +1,6 @@
 import { useNotificationStore } from '@/stores/notificationStore';
 import clsx from 'clsx';
+import { X } from 'lucide-react';
 
 const typeStyles: Record<string, string> = {
   info: 'bg-charcoal text-white',
@@ -19,10 +20,19 @@ export default function NotificationCenter() {
       {notifications.map((n) => (
         <div
           key={n.id}
-          className={clsx('cursor-pointer rounded-md px-4 py-2 shadow-md text-sm', typeStyles[n.type])}
-          onClick={() => dismiss(n.id)}
+          className={clsx(
+            'flex items-center gap-3 rounded-md py-2 pl-4 pr-2 shadow-md text-sm',
+            typeStyles[n.type]
+          )}
         >
-          {n.message}
+          <span className="flex-1">{n.message}</span>
+          <button
+            onClick={() => dismiss(n.id)}
+            className="rounded p-1 opacity-70 hover:opacity-100"
+            aria-label="Dismiss notification"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       ))}
     </div>

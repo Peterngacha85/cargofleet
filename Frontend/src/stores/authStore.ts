@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { AuthUser } from '@/types/auth';
 import { storage } from '@/utils/storage';
 import { disconnectAllSockets } from '@/services/socketService';
+import { useProfileStore } from '@/stores/profileStore';
 
 interface AuthState {
   user: AuthUser | null;
@@ -22,6 +23,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     storage.clear();
     disconnectAllSockets();
+    useProfileStore.getState().clear();
     set({ user: null, isAuthenticated: false });
   },
 }));

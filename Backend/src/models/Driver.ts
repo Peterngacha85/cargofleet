@@ -7,8 +7,8 @@ export interface IDriver extends Document {
   drivingLicenseNumber: string;
   licenseExpiry: Date;
   licensePhotoUrl?: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
   status: DriverStatus;
   rejectionReason?: string;
   approvedBy?: string;
@@ -30,8 +30,9 @@ const driverSchema = new Schema<IDriver>(
     drivingLicenseNumber: { type: String, required: true, unique: true },
     licenseExpiry: { type: Date, required: true },
     licensePhotoUrl: { type: String },
-    emergencyContactName: { type: String, required: true },
-    emergencyContactPhone: { type: String, required: true },
+    // Not required: a Google OAuth sign-up can't supply these upfront (filled in later, same as phone on User).
+    emergencyContactName: { type: String, default: '' },
+    emergencyContactPhone: { type: String, default: '' },
     status: {
       type: String,
       enum: ['pending_approval', 'active', 'rejected', 'suspended'],

@@ -8,7 +8,7 @@ export interface IUser extends Document {
   role: UserRole;
   firstName: string;
   lastName: string;
-  phone: string;
+  phone?: string;
   profilePhoto?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -28,7 +28,16 @@ const userSchema = new Schema<IUser>(
     role: { type: String, enum: ['driver', 'manager', 'admin'], required: true },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
-    phone: { type: String, required: true, match: /^\+?[0-9]{10,}$/ },
+    // Not required: Google OAuth sign-up only gives us name + email, never a phone number.
+    // Format is still enforced whenever a value is actually provided.
+    phone: {
+      type: String,
+      default: '',
+      validate: {
+        validator: (v: string) => !v || /^\+?[0-9]{10,}$/.test(v),
+        message: 'Invalid phone number format',
+      },
+    },
     profilePhoto: { type: String },
   },
   { timestamps: true }

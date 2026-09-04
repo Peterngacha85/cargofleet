@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import LoginForm from '@/components/auth/LoginForm';
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 
 export default function LoginPage() {
   return (
@@ -10,6 +11,15 @@ export default function LoginPage() {
         <p className="mb-6 text-sm text-gray-500">Sign in to CargoFleet</p>
 
         <LoginForm />
+
+        <div className="my-4 flex items-center gap-2 text-xs text-gray-400">
+          <div className="h-px flex-1 bg-gray-200" />
+          OR
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        {/* role only matters for a first-time Google sign-up; an existing account keeps its real role */}
+        <GoogleAuthButton role="driver" />
 
         <p className="mt-6 text-center text-sm text-gray-500">
           New here?{' '}

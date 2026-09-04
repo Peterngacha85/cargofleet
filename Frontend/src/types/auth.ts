@@ -8,6 +8,7 @@ export interface AuthUser {
   role: UserRole;
   phone?: string;
   permissions?: string[];
+  profilePhoto?: string;
 }
 
 export interface LoginResponseData {
@@ -17,6 +18,7 @@ export interface LoginResponseData {
 }
 
 export interface CurrentUserProfile extends AuthUser {
+  profileComplete: boolean;
   driver?: {
     _id: string;
     status: string;

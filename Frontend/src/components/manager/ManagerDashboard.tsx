@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { DriverService } from '@/services/driverService';
-import { AuthService } from '@/services/authService';
+import { useProfileStore } from '@/stores/profileStore';
 import { Branch } from '@/types/driver';
 import TeamMap from './TeamMap';
 import DriverApprovalList from './DriverApprovalList';
@@ -9,16 +9,21 @@ import BranchAnalytics from './BranchAnalytics';
 export default function ManagerDashboard() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState('');
+  const profile = useProfileStore((s) => s.profile);
 
   useEffect(() => {
-    Promise.all([DriverService.getBranches(), AuthService.getMe()]).then(([branchesRes, meRes]) => {
-      const list = branchesRes.data?.branches ?? [];
-      setBranches(list);
-
-      const assignedBranchId = meRes.data?.manager?.assignedBranchId;
-      setSelectedBranchId(assignedBranchId || list[0]?._id || '');
-    });
+    DriverService.getBranches().then((res) => setBranches(res.data?.branches ?? []));
   }, []);
+
+  useEffect(() => {
+    if (selectedBranchId) return;
+    const assignedBranchId = profile?.manager?.assignedBranchId;
+    if (assignedBranchId) {
+      setSelectedBranchId(assignedBranchId);
+    } else if (branches[0]) {
+      setSelectedBranchId(branches[0]._id);
+    }
+  }, [profile, branches, selectedBranchId]);
 
   return (
     <div className="flex flex-col gap-6">

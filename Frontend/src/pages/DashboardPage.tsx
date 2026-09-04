@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from '@/components/shared/Navbar';
 import Sidebar from '@/components/shared/Sidebar';
+import CompleteProfileModal from '@/components/shared/CompleteProfileModal';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfileStore } from '@/stores/profileStore';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import ManagerDashboard from '@/components/manager/ManagerDashboard';
 import AdminPanel from '@/components/admin/AdminPanel';
@@ -19,6 +22,16 @@ function RoleHome() {
 
 export default function DashboardPage() {
   const { role } = useAuth();
+  const { profile, loaded, fetchProfile } = useProfileStore();
+  const [modalDismissed, setModalDismissed] = useState(false);
+
+  useEffect(() => {
+    fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const showCompleteProfileModal =
+    loaded && profile && profile.role !== 'admin' && !profile.profileComplete && !modalDismissed;
 
   return (
     <div className="flex h-screen flex-col">
@@ -44,6 +57,13 @@ export default function DashboardPage() {
           </Routes>
         </main>
       </div>
+
+      {showCompleteProfileModal && (
+        <CompleteProfileModal
+          role={profile!.role as 'driver' | 'manager'}
+          onClose={() => setModalDismissed(true)}
+        />
+      )}
     </div>
   );
 }

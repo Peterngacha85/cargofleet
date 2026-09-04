@@ -3,8 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
 import { useSocket } from '@/hooks/useSocket';
 import { api } from '@/services/api';
-import { AuthService } from '@/services/authService';
-import { CurrentUserProfile } from '@/types/auth';
+import { useProfileStore } from '@/stores/profileStore';
 import MapComponent from '@/components/map/MapComponent';
 import ActiveTrips, { TripSummary } from './ActiveTrips';
 import PerformanceCard from './PerformanceCard';
@@ -14,14 +13,9 @@ export default function DriverDashboard() {
   const { user } = useAuth();
   const [sharing, setSharing] = useState(false);
   const [trips, setTrips] = useState<TripSummary[]>([]);
-  const [profile, setProfile] = useState<CurrentUserProfile | null>(null);
+  const profile = useProfileStore((s) => s.profile);
   const { position } = useLocation(sharing);
   const socketRef = useSocket('driver', { driverId: profile?.driver?._id ?? '' }, !!profile?.driver);
-
-  useEffect(() => {
-    if (!user) return;
-    AuthService.getMe().then((res) => setProfile(res.data));
-  }, [user]);
 
   useEffect(() => {
     const driverId = profile?.driver?._id;

@@ -7,6 +7,7 @@ import { AuthService } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificationStore } from '@/stores/notificationStore';
 import PasswordInput from '@/components/shared/PasswordInput';
+import FieldLabel from '@/components/shared/FieldLabel';
 
 export default function LoginForm() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -46,26 +47,26 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div>
-        <label className="label" htmlFor="email">
+        <FieldLabel htmlFor="email" required>
           Email
-        </label>
+        </FieldLabel>
         <input id="email" type="email" className="input-field" {...register('email')} />
         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
       </div>
 
       <div>
-        <label className="label" htmlFor="password">
+        <FieldLabel htmlFor="password" required>
           Password
-        </label>
+        </FieldLabel>
         <PasswordInput id="password" {...register('password')} />
         {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
       </div>
 
       {isSuperAdmin && (
         <div>
-          <label className="label" htmlFor="secretCode">
+          <FieldLabel htmlFor="secretCode" required>
             4-Digit Secret Code
-          </label>
+          </FieldLabel>
           <PasswordInput
             id="secretCode"
             inputMode="numeric"

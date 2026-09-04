@@ -7,6 +7,7 @@ import {
   registerManager,
   refreshTokenHandler,
   getMe,
+  completeProfile,
 } from '../controllers/authController';
 import { authRateLimiter } from '../middleware/rateLimiter';
 import { authMiddleware } from '../middleware/auth';
@@ -20,5 +21,6 @@ router.post('/register/driver', authRateLimiter, registerDriver);
 router.post('/register/manager', authRateLimiter, registerManager);
 router.post('/refresh', refreshTokenHandler);
 router.get('/me', authMiddleware, getMe);
+router.put('/complete-profile', authMiddleware, completeProfile);
 
 export default router;

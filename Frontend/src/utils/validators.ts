@@ -28,6 +28,20 @@ export const managerRegisterSchema = z.object({
   phone: phoneSchema,
 });
 
+export const driverCompleteProfileSchema = z.object({
+  phone: phoneSchema,
+  drivingLicenseNumber: z.string().min(1, 'License number is required'),
+  licenseExpiry: z.string().min(1, 'License expiry date is required'),
+  emergencyContactName: z.string().min(1, 'Emergency contact name is required'),
+  emergencyContactPhone: phoneSchema,
+});
+
+export const managerCompleteProfileSchema = z.object({
+  phone: phoneSchema,
+});
+
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type DriverRegisterFormValues = z.infer<typeof driverRegisterSchema>;
 export type ManagerRegisterFormValues = z.infer<typeof managerRegisterSchema>;
+export type DriverCompleteProfileValues = z.infer<typeof driverCompleteProfileSchema>;
+export type ManagerCompleteProfileValues = z.infer<typeof managerCompleteProfileSchema>;
