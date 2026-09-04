@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import './variables.css';
+
+body {
+  background-color: var(--soft-gray);
+  color: var(--charcoal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* No gradients anywhere in the product - flatten any gradient utility to a solid fill */
+.bg-gradient-to-r,
+.bg-gradient-to-b,
+.bg-gradient-to-l,
+.bg-gradient-to-t {
+  @apply !bg-none !bg-charcoal;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+}

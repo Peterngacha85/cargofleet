@@ -1,0 +1,56 @@
+import { Request, Response } from 'express';
+import { subDays, subMonths, subYears } from 'date-fns';
+import Trip from '../models/Trip';
+import Driver from '../models/Driver';
+import { sendSuccess, sendError } from '../utils/apiResponse';
+import { logger } from '../utils/logger';
+
+const periodToDate = (period: string): Date => {
+  switch (period) {
+    case 'week':
+      return subDays(new Date(), 7);
+    case 'year':
+      return subYears(new Date(), 1);
+    case 'month':
+    default:
+      return subMonths(new Date(), 1);
+  }
+};
+
+export const getBranchAnalytics = async (req: Request, res: Response) => {
+  try {
+    const { branchId } = req.params;
+    const period = (req.query.period as string) || 'month';
+    const since = periodToDate(period);
+
+    const trips = await Trip.find({ branchId, createdAt: { $gte: since } });
+    const completedTrips = trips.filter((t) => t.status === 'completed');
+
+    const totalEarnings = completedTrips.reduce((sum, t) => sum + t.totalEarnings, 0);
+    const totalKilometers = trips.reduce((sum, t) => sum + t.distance, 0);
+
+    const drivers = await Driver.find({ branchId }).sort({ avgRating: -1, totalTrips: -1 }).limit(1);
+    const topDriver = drivers[0]
+      ? { name: 'Top Driver', trips: drivers[0].totalTrips, rating: drivers[0].avgRating }
+      : null;
+
+    const averageRating =
+      drivers.length > 0 ? drivers.reduce((sum, d) => sum + d.avgRating, 0) / drivers.length : 0;
+
+    return sendSuccess(res, 200, 'Branch analytics retrieved', {
+      analytics: {
+        period,
+        totalTrips: trips.length,
+        completedTrips: completedTrips.length,
+        completionRate: trips.length ? Math.round((completedTrips.length / trips.length) * 1000) / 10 : 0,
+        totalEarnings,
+        totalKilometers,
+        averageRating: Math.round(averageRating * 10) / 10,
+        topDriver,
+      },
+    });
+  } catch (error) {
+    logger.error('Get branch analytics error', { error });
+    return sendError(res, 500, 'Failed to retrieve analytics');
+  }
+};
