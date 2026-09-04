@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useLocation } from '@/hooks/useLocation';
-import { useSocket } from '@/hooks/useSocket';
 import { api } from '@/services/api';
 import { useProfileStore } from '@/stores/profileStore';
+import { useTripTrackingStore } from '@/stores/tripTrackingStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import MapComponent from '@/components/map/MapComponent';
 import ActiveTrips, { TripSummary } from './ActiveTrips';
@@ -12,22 +12,10 @@ import { DriverLocationUpdate } from '@/types/map';
 
 export default function DriverDashboard() {
   const { user } = useAuth();
-  const [sharing, setSharing] = useState(false);
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const profile = useProfileStore((s) => s.profile);
-  const showCompletionPrompt = useProfileStore((s) => s.showCompletionPrompt);
   const push = useNotificationStore((s) => s.push);
-  const { position } = useLocation(sharing);
-  const socketRef = useSocket('driver', { driverId: profile?.driver?._id ?? '' }, !!profile?.driver);
-
-  const handleToggleSharing = () => {
-    if (!profile?.profileComplete) {
-      push('Complete your profile before sharing your location.', 'warning');
-      showCompletionPrompt();
-      return;
-    }
-    setSharing((v) => !v);
-  };
+  const { activeTripId, activeTripNumber, position, stopTrip } = useTripTrackingStore();
 
   useEffect(() => {
     const driverId = profile?.driver?._id;
@@ -38,16 +26,10 @@ export default function DriverDashboard() {
       .catch(() => setTrips([]));
   }, [profile]);
 
-  useEffect(() => {
-    if (!position || !socketRef.current) return;
-    socketRef.current.emit('sendLocation', {
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracy: position.accuracy,
-      speed: position.speed ?? 0,
-      heading: position.heading ?? 0,
-    });
-  }, [position, socketRef]);
+  const handleStopSharing = () => {
+    stopTrip();
+    push('Location sharing stopped. The trip stays in transit until it is completed.', 'info');
+  };
 
   const marker: DriverLocationUpdate[] = position
     ? [
@@ -73,11 +55,21 @@ export default function DriverDashboard() {
       <div className="card flex items-center justify-between">
         <div>
           <p className="font-medium text-charcoal">Live Location Sharing</p>
-          <p className="text-sm text-gray-500">Share your location so your branch manager can track this trip.</p>
+          <p className="text-sm text-gray-500">
+            {activeTripId
+              ? `Sharing your location for trip ${activeTripNumber}.`
+              : 'Not currently sharing - start a trip from My Trips to begin.'}
+          </p>
         </div>
-        <button className="btn-primary" onClick={handleToggleSharing}>
-          {sharing ? 'Stop Sharing' : 'Start Sharing'}
-        </button>
+        {activeTripId ? (
+          <button className="btn-secondary" onClick={handleStopSharing}>
+            Stop Sharing
+          </button>
+        ) : (
+          <Link to="/dashboard/trips" className="btn-primary">
+            My Trips
+          </Link>
+        )}
       </div>
 
       <div>

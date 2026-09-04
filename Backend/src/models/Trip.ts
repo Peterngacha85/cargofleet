@@ -15,6 +15,9 @@ export interface ITrip extends Document {
   driverId: Types.ObjectId;
   vehicleId: Types.ObjectId;
   branchId: Types.ObjectId;
+  // Auto-detected from dropoffLocation coordinates (nearest branch) at creation time -
+  // the goods may be heading to a different branch than the one that scheduled the trip.
+  destinationBranchId?: Types.ObjectId;
   pickupLocation: ITripLocation;
   dropoffLocation: ITripLocation;
   status: TripStatus;
@@ -50,6 +53,7 @@ const tripSchema = new Schema<ITrip>(
     driverId: { type: Schema.Types.ObjectId, ref: 'Driver', required: true },
     vehicleId: { type: Schema.Types.ObjectId, ref: 'Vehicle', required: true },
     branchId: { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
+    destinationBranchId: { type: Schema.Types.ObjectId, ref: 'Branch' },
     pickupLocation: { type: tripLocationSchema, required: true },
     dropoffLocation: { type: tripLocationSchema, required: true },
     status: {
@@ -76,6 +80,7 @@ tripSchema.index({ driverId: 1 });
 tripSchema.index({ vehicleId: 1 });
 tripSchema.index({ status: 1 });
 tripSchema.index({ branchId: 1 });
+tripSchema.index({ destinationBranchId: 1 });
 tripSchema.index({ createdAt: -1 });
 
 export default model<ITrip>('Trip', tripSchema);

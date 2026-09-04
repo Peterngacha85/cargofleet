@@ -1,9 +1,14 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Trip from '../models/Trip';
 import Driver from '../models/Driver';
 import Vehicle from '../models/Vehicle';
+import Branch from '../models/Branch';
+import Manager from '../models/Manager';
 import { sendSuccess, sendError } from '../utils/apiResponse';
+import { haversineDistanceKm } from '../utils/geo';
 import { logger } from '../utils/logger';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { emitToDriver } from '../websocket/emitters';
 
 const generateTripNumber = async (): Promise<string> => {
   const year = new Date().getFullYear();
@@ -11,7 +16,25 @@ const generateTripNumber = async (): Promise<string> => {
   return `TRP-${year}-${String(count + 1).padStart(4, '0')}`;
 };
 
-export const createTrip = async (req: Request, res: Response) => {
+const findNearestBranchId = async (latitude: number, longitude: number) => {
+  const branches = await Branch.find();
+  if (branches.length === 0) return undefined;
+
+  let nearest = branches[0];
+  let minDistance = haversineDistanceKm(latitude, longitude, nearest.latitude, nearest.longitude);
+
+  for (const branch of branches.slice(1)) {
+    const distance = haversineDistanceKm(latitude, longitude, branch.latitude, branch.longitude);
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearest = branch;
+    }
+  }
+
+  return nearest._id;
+};
+
+export const createTrip = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { driverId, vehicleId, branchId, pickupLocation, dropoffLocation, estimatedEndTime, fare } = req.body;
 
@@ -30,17 +53,28 @@ export const createTrip = async (req: Request, res: Response) => {
     }
 
     const tripNumber = await generateTripNumber();
+    const destinationBranchId = await findNearestBranchId(dropoffLocation.latitude, dropoffLocation.longitude);
 
     const trip = await Trip.create({
       tripNumber,
       driverId,
       vehicleId,
       branchId,
+      destinationBranchId,
       pickupLocation,
       dropoffLocation,
       estimatedEndTime: new Date(estimatedEndTime),
       fare,
       status: 'scheduled',
+    });
+
+    emitToDriver(driverId, 'tripAssigned', {
+      tripId: trip._id,
+      tripNumber: trip.tripNumber,
+      pickupAddress: pickupLocation.address,
+      dropoffAddress: dropoffLocation.address,
+      estimatedEndTime: trip.estimatedEndTime,
+      fare: trip.fare,
     });
 
     return sendSuccess(res, 201, 'Trip created', { trip });
@@ -50,7 +84,7 @@ export const createTrip = async (req: Request, res: Response) => {
   }
 };
 
-export const getTrip = async (req: Request, res: Response) => {
+export const getTrip = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const trip = await Trip.findById(req.params.tripId).populate('deliveryItems');
     if (!trip) {
@@ -63,15 +97,31 @@ export const getTrip = async (req: Request, res: Response) => {
   }
 };
 
-export const listTrips = async (req: Request, res: Response) => {
+export const listTrips = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { driverId, branchId, status } = req.query;
+    const { driverId, branchId, visibleToBranchId, status } = req.query;
     const filter: Record<string, unknown> = {};
     if (driverId) filter.driverId = driverId;
-    if (branchId) filter.branchId = branchId;
     if (status) filter.status = status;
 
-    const trips = await Trip.find(filter).sort({ createdAt: -1 });
+    if (visibleToBranchId) {
+      // A trip is relevant to a branch if it's shipping FROM there or landing there.
+      filter.$or = [{ branchId: visibleToBranchId }, { destinationBranchId: visibleToBranchId }];
+    } else if (branchId) {
+      filter.branchId = branchId;
+    }
+
+    const trips = await Trip.find(filter)
+      .populate({
+        path: 'driverId',
+        select: 'userId',
+        populate: { path: 'userId', select: 'firstName lastName' },
+      })
+      .populate('vehicleId', 'registrationNumber make model')
+      .populate('branchId', 'name')
+      .populate('destinationBranchId', 'name')
+      .sort({ createdAt: -1 });
+
     return sendSuccess(res, 200, 'Trips retrieved', { trips, count: trips.length });
   } catch (error) {
     logger.error('List trips error', { error });
@@ -79,7 +129,7 @@ export const listTrips = async (req: Request, res: Response) => {
   }
 };
 
-export const updateTripStatus = async (req: Request, res: Response) => {
+export const updateTripStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { status, tripEndTime, tripStartTime, fuelUsed } = req.body;
 
@@ -87,15 +137,32 @@ export const updateTripStatus = async (req: Request, res: Response) => {
       return sendError(res, 400, 'status is required');
     }
 
+    const trip = await Trip.findById(req.params.tripId);
+    if (!trip) {
+      return sendError(res, 404, 'Trip not found');
+    }
+
+    if (req.user!.role === 'manager') {
+      const manager = await Manager.findOne({ userId: req.user!.id });
+      const managerBranchId = manager?.assignedBranchId?.toString();
+      const isOriginManager = managerBranchId === trip.branchId.toString();
+      const isDestinationManager =
+        !!trip.destinationBranchId && managerBranchId === trip.destinationBranchId.toString();
+
+      if (!isOriginManager && !isDestinationManager) {
+        return sendError(res, 403, 'You are not authorized to update this trip');
+      }
+      if (status === 'completed' && !isDestinationManager) {
+        return sendError(res, 403, 'Only the destination branch manager can mark this trip as received');
+      }
+    }
+
     const update: Record<string, unknown> = { status };
     if (tripStartTime) update.tripStartTime = new Date(tripStartTime);
     if (tripEndTime) update.tripEndTime = new Date(tripEndTime);
     if (fuelUsed !== undefined) update.fuelUsed = fuelUsed;
 
-    const trip = await Trip.findByIdAndUpdate(req.params.tripId, update, { new: true });
-    if (!trip) {
-      return sendError(res, 404, 'Trip not found');
-    }
+    const updatedTrip = await Trip.findByIdAndUpdate(req.params.tripId, update, { new: true });
 
     if (status === 'completed') {
       await Driver.findByIdAndUpdate(trip.driverId, {
@@ -103,7 +170,7 @@ export const updateTripStatus = async (req: Request, res: Response) => {
       });
     }
 
-    return sendSuccess(res, 200, 'Trip status updated', { trip });
+    return sendSuccess(res, 200, 'Trip status updated', { trip: updatedTrip });
   } catch (error) {
     logger.error('Update trip status error', { error });
     return sendError(res, 500, 'Failed to update trip status');

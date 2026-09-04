@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  listManagers,
   getPendingVerificationManagers,
   verifyManagerHandler,
   rejectManagerHandler,
@@ -10,6 +11,7 @@ const router = Router();
 
 router.use(authMiddleware, superAdminMiddleware);
 
+router.get('/', listManagers);
 router.get('/pending-verification', getPendingVerificationManagers);
 router.post('/:managerId/verify', verifyManagerHandler);
 router.post('/:managerId/reject', rejectManagerHandler);

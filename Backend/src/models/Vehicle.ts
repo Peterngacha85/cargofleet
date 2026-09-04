@@ -12,6 +12,10 @@ export interface IVehicle extends Omit<Document, 'model'> {
   currentDriverId?: Types.ObjectId;
   branchId: Types.ObjectId;
   status: VehicleStatus;
+  registeredBy: string;
+  verifiedBy?: string;
+  verifiedAt?: Date;
+  rejectionReason?: string;
   maintenanceDue?: Date;
   fuelType: FuelType;
   lastServiceDate?: Date;
@@ -37,7 +41,18 @@ const vehicleSchema = new Schema<IVehicle>(
     capacity: { type: Number, required: true },
     currentDriverId: { type: Schema.Types.ObjectId, ref: 'Driver' },
     branchId: { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
-    status: { type: String, enum: ['active', 'maintenance', 'retired'], default: 'active' },
+    status: {
+      type: String,
+      enum: ['pending_verification', 'active', 'rejected', 'maintenance', 'retired'],
+      default: 'pending_verification',
+    },
+    // String, not ObjectId ref: an admin can register a vehicle directly too, and their id
+    // is an env-based "super_admin_N" string, not a User document.
+    registeredBy: { type: String, required: true },
+    // String, not ObjectId ref: the verifier is always a super admin (env-based id, not a User document)
+    verifiedBy: { type: String },
+    verifiedAt: { type: Date },
+    rejectionReason: { type: String },
     maintenanceDue: { type: Date },
     fuelType: { type: String, enum: ['petrol', 'diesel', 'electric'], required: true },
     lastServiceDate: { type: Date },

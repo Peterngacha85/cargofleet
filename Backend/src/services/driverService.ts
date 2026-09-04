@@ -57,6 +57,24 @@ export const rejectDriver = async (driverId: string, reviewerId: string, rejecti
   return driver;
 };
 
+export const reassignDriverBranch = async (driverId: string, newBranchId: string) => {
+  const driver = await Driver.findById(driverId);
+  if (!driver) return null;
+
+  const oldBranchId = driver.branchId?.toString();
+  if (oldBranchId === newBranchId) return driver;
+
+  driver.branchId = new Types.ObjectId(newBranchId);
+  await driver.save();
+
+  if (oldBranchId) {
+    await Branch.findByIdAndUpdate(oldBranchId, { $inc: { driverCount: -1 } });
+  }
+  await Branch.findByIdAndUpdate(newBranchId, { $inc: { driverCount: 1 } });
+
+  return driver;
+};
+
 export const assignVehicleToDriver = async (driverId: string, vehicleId: string) => {
   const driver = await Driver.findByIdAndUpdate(
     driverId,

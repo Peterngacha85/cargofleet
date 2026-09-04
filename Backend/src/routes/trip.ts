@@ -9,6 +9,6 @@ router.use(authMiddleware);
 router.get('/', listTrips);
 router.get('/:tripId', getTrip);
 router.post('/', roleMiddleware(['manager', 'admin']), createTrip);
-router.put('/:tripId/status', updateTripStatus);
+router.put('/:tripId/status', roleMiddleware(['manager', 'admin']), updateTripStatus);
 
 export default router;

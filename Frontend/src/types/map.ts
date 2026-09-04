@@ -5,6 +5,10 @@ export interface DriverLocationUpdate {
   speed?: number;
   heading?: number;
   timestamp: string;
+  tripId?: string;
+  tripNumber?: string;
+  dropoffAddress?: string;
+  tripStatus?: string;
 }
 
 export interface TripStatusChangedEvent {

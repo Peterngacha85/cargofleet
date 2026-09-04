@@ -12,6 +12,7 @@ import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { isValidPhone, isFutureDate } from '../utils/validators';
 import { IDriver } from '../models/Driver';
+import { emitToManagers, emitToAdmins } from '../websocket/emitters';
 
 const googleClient = new OAuth2Client(config.google.clientId);
 
@@ -151,7 +152,7 @@ export const googleOAuthLogin = async (req: Request, res: Response) => {
       await user.save();
 
       if (role === 'driver') {
-        await Driver.create({
+        const driver = await Driver.create({
           userId: user._id,
           drivingLicenseNumber: `PENDING-${user._id}`,
           licenseExpiry: new Date(),
@@ -159,10 +160,24 @@ export const googleOAuthLogin = async (req: Request, res: Response) => {
           emergencyContactPhone: '',
           status: 'pending_approval',
         });
+        emitToManagers('newDriverRegistration', {
+          driverId: driver._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          createdAt: driver.createdAt,
+        });
       } else if (role === 'manager') {
-        await Manager.create({
+        const manager = await Manager.create({
           userId: user._id,
           status: 'pending_verification',
+        });
+        emitToAdmins('newManagerRegistration', {
+          managerId: manager._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          createdAt: manager.createdAt,
         });
       }
     } else if (picture && user.profilePhoto !== picture) {
@@ -259,6 +274,14 @@ export const registerDriver = async (req: Request, res: Response) => {
     });
     await driver.save();
 
+    emitToManagers('newDriverRegistration', {
+      driverId: driver._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      createdAt: driver.createdAt,
+    });
+
     return sendSuccess(res, 201, 'Driver registration submitted for approval', {
       driverId: driver._id,
       status: 'pending_approval',
@@ -295,6 +318,14 @@ export const registerManager = async (req: Request, res: Response) => {
 
     const manager = new Manager({ userId: user._id, status: 'pending_verification' });
     await manager.save();
+
+    emitToAdmins('newManagerRegistration', {
+      managerId: manager._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      createdAt: manager.createdAt,
+    });
 
     return sendSuccess(res, 201, 'Manager registration submitted for verification', {
       managerId: manager._id,

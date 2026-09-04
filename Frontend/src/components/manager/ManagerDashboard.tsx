@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { DriverService } from '@/services/driverService';
 import { useProfileStore } from '@/stores/profileStore';
 import { Branch } from '@/types/driver';
-import TeamMap from './TeamMap';
+import TeamMap from '@/components/shared/TeamMap';
 import DriverApprovalList from './DriverApprovalList';
 import BranchAnalytics from './BranchAnalytics';
+import Select from '@/components/shared/Select';
 
 export default function ManagerDashboard() {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -42,17 +43,12 @@ export default function ManagerDashboard() {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="font-semibold text-charcoal">Branch Analytics</h2>
-          <select
-            className="input-field w-48"
+          <Select
+            className="w-48"
             value={selectedBranchId}
-            onChange={(e) => setSelectedBranchId(e.target.value)}
-          >
-            {branches.map((b) => (
-              <option key={b._id} value={b._id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedBranchId}
+            options={branches.map((b) => ({ value: b._id, label: b.name }))}
+          />
         </div>
         {selectedBranchId && <BranchAnalytics branchId={selectedBranchId} />}
       </div>

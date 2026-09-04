@@ -5,15 +5,27 @@ export interface DriverUserSummary {
   lastName: string;
   email: string;
   phone: string;
+  profilePhoto?: string;
+}
+
+export interface PopulatedBranchSummary {
+  _id: string;
+  name: string;
 }
 
 export interface Driver {
   _id: string;
   userId: string | DriverUserSummary;
   drivingLicenseNumber: string;
+  licenseExpiry?: string;
   status: DriverStatus;
-  branchId?: string;
+  branchId?: string | PopulatedBranchSummary;
   assignedVehicleId?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  rejectionReason?: string;
+  approvedAt?: string;
+  approvedByName?: string;
   totalTrips: number;
   completedTrips: number;
   avgRating: number;

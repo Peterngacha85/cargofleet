@@ -5,6 +5,32 @@ import Approval from '../models/Approval';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { resolveApproverNames, approverDisplayName } from '../utils/resolveApprover';
+
+export const listManagers = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { status, branchId } = req.query;
+    const filter: Record<string, unknown> = {};
+    if (status) filter.status = status;
+    if (branchId) filter.assignedBranchId = branchId;
+
+    const managers = await Manager.find(filter)
+      .populate('userId', 'firstName lastName email phone profilePhoto')
+      .populate('assignedBranchId', 'name')
+      .sort({ createdAt: -1 });
+
+    const verifierMap = await resolveApproverNames(managers.map((m) => m.verifiedBy));
+    const managersWithVerifier = managers.map((m) => ({
+      ...m.toObject(),
+      verifiedByName: approverDisplayName(m.verifiedBy, verifierMap),
+    }));
+
+    return sendSuccess(res, 200, 'Managers retrieved', { managers: managersWithVerifier, count: managers.length });
+  } catch (error) {
+    logger.error('List managers error', { error });
+    return sendError(res, 500, 'Failed to retrieve managers');
+  }
+};
 
 export const getPendingVerificationManagers = async (_req: AuthenticatedRequest, res: Response) => {
   try {

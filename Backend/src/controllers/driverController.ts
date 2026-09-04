@@ -1,11 +1,38 @@
 import { Request, Response } from 'express';
 import Driver from '../models/Driver';
 import Branch from '../models/Branch';
+import Vehicle from '../models/Vehicle';
 import DriverRating from '../models/DriverRating';
-import { approveDriver, rejectDriver, assignVehicleToDriver } from '../services/driverService';
+import { approveDriver, rejectDriver, assignVehicleToDriver, reassignDriverBranch } from '../services/driverService';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { resolveApproverNames, approverDisplayName } from '../utils/resolveApprover';
+
+export const listDrivers = async (req: Request, res: Response) => {
+  try {
+    const { branchId, status } = req.query;
+    const filter: Record<string, unknown> = {};
+    if (branchId) filter.branchId = branchId;
+    if (status) filter.status = status;
+
+    const drivers = await Driver.find(filter)
+      .populate('userId', 'firstName lastName email phone profilePhoto')
+      .populate('branchId', 'name')
+      .sort({ createdAt: -1 });
+
+    const approverMap = await resolveApproverNames(drivers.map((d) => d.approvedBy));
+    const driversWithApprover = drivers.map((d) => ({
+      ...d.toObject(),
+      approvedByName: approverDisplayName(d.approvedBy, approverMap),
+    }));
+
+    return sendSuccess(res, 200, 'Drivers retrieved', { drivers: driversWithApprover, count: drivers.length });
+  } catch (error) {
+    logger.error('List drivers error', { error });
+    return sendError(res, 500, 'Failed to retrieve drivers');
+  }
+};
 
 export const getDriverProfile = async (req: Request, res: Response) => {
   try {
@@ -82,6 +109,32 @@ export const rejectDriverHandler = async (req: AuthenticatedRequest, res: Respon
   }
 };
 
+export const reassignBranchHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { driverId } = req.params;
+    const { branchId } = req.body;
+
+    if (!branchId) {
+      return sendError(res, 400, 'branchId is required');
+    }
+
+    const branch = await Branch.findById(branchId);
+    if (!branch) {
+      return sendError(res, 404, 'Branch not found');
+    }
+
+    const driver = await reassignDriverBranch(driverId, branchId);
+    if (!driver) {
+      return sendError(res, 404, 'Driver not found');
+    }
+
+    return sendSuccess(res, 200, 'Driver reassigned to new branch', { driver });
+  } catch (error) {
+    logger.error('Reassign driver branch error', { error });
+    return sendError(res, 500, 'Failed to reassign driver');
+  }
+};
+
 export const assignVehicleHandler = async (req: Request, res: Response) => {
   try {
     const { driverId } = req.params;
@@ -89,6 +142,16 @@ export const assignVehicleHandler = async (req: Request, res: Response) => {
 
     if (!vehicleId) {
       return sendError(res, 400, 'vehicleId is required');
+    }
+
+    const vehicle = await Vehicle.findById(vehicleId);
+    if (!vehicle) {
+      return sendError(res, 404, 'Vehicle not found');
+    }
+    if (vehicle.status !== 'active') {
+      return sendError(res, 400, 'Vehicle must be verified and active before it can be assigned', {
+        status: vehicle.status,
+      });
     }
 
     const driver = await assignVehicleToDriver(driverId, vehicleId);

@@ -3,6 +3,7 @@ import { AuthUser } from '@/types/auth';
 import { storage } from '@/utils/storage';
 import { disconnectAllSockets } from '@/services/socketService';
 import { useProfileStore } from '@/stores/profileStore';
+import { useTripTrackingStore } from '@/stores/tripTrackingStore';
 
 interface AuthState {
   user: AuthUser | null;
@@ -24,6 +25,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     storage.clear();
     disconnectAllSockets();
     useProfileStore.getState().clear();
+    useTripTrackingStore.getState().stopTrip();
     set({ user: null, isAuthenticated: false });
   },
 }));

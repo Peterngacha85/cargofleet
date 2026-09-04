@@ -3,6 +3,11 @@ import { ApiResponse } from '@/types/api';
 import { Driver, Branch } from '@/types/driver';
 
 export const DriverService = {
+  async list(params: { branchId?: string; status?: string }) {
+    const { data } = await api.get<ApiResponse<{ drivers: Driver[]; count: number }>>('/drivers', { params });
+    return data;
+  },
+
   async getPendingApproval() {
     const { data } = await api.get<ApiResponse<{ drivers: Driver[]; count: number }>>('/drivers/pending-approval');
     return data;
@@ -26,6 +31,13 @@ export const DriverService = {
   async assignVehicle(driverId: string, vehicleId: string) {
     const { data } = await api.post<ApiResponse<{ driver: Driver }>>(`/drivers/${driverId}/assign-vehicle`, {
       vehicleId,
+    });
+    return data;
+  },
+
+  async reassignBranch(driverId: string, branchId: string) {
+    const { data } = await api.post<ApiResponse<{ driver: Driver }>>(`/drivers/${driverId}/reassign-branch`, {
+      branchId,
     });
     return data;
   },

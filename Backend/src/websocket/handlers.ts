@@ -4,7 +4,7 @@ import Driver from '../models/Driver';
 import Manager from '../models/Manager';
 import { recordDriverLocation } from '../services/locationService';
 import { DriverLocationPayload, TripStatusUpdatePayload } from '../types/websocket';
-import { emitToManagers, emitToDrivers } from './emitters';
+import { emitToManagers, emitToDrivers, emitToAdmins } from './emitters';
 import { logger } from '../utils/logger';
 
 export const registerDriverNamespaceHandlers = (namespace: Namespace) => {
@@ -12,29 +12,74 @@ export const registerDriverNamespaceHandlers = (namespace: Namespace) => {
     const driverId = socket.handshake.auth.driverId as string | undefined;
     logger.info(`Driver connected to /driver namespace`, { driverId, socketId: socket.id });
 
+    // Lets emitToDriver() target this one driver instead of broadcasting to everyone connected.
+    if (driverId) {
+      socket.join(driverId);
+    }
+
     socket.on('sendLocation', async (data: DriverLocationPayload) => {
       if (!driverId) return;
 
       try {
         await recordDriverLocation(driverId, data);
 
-        emitToManagers('driverLocationUpdate', {
+        let tripInfo: { tripNumber?: string; dropoffAddress?: string; tripStatus?: string } = {};
+        if (data.tripId) {
+          const trip = await Trip.findById(data.tripId).select('tripNumber dropoffLocation.address status');
+          if (trip) {
+            tripInfo = {
+              tripNumber: trip.tripNumber,
+              dropoffAddress: trip.dropoffLocation?.address,
+              tripStatus: trip.status,
+            };
+          }
+        }
+
+        const locationUpdate = {
           driverId,
+          tripId: data.tripId,
           latitude: data.latitude,
           longitude: data.longitude,
           speed: data.speed,
           heading: data.heading,
           timestamp: new Date(),
-        });
+          ...tripInfo,
+        };
+
+        emitToManagers('driverLocationUpdate', locationUpdate);
+        emitToAdmins('driverLocationUpdate', locationUpdate);
       } catch (error) {
         logger.error('sendLocation handler error', { error });
       }
     });
 
     socket.on('updateTripStatus', async (data: TripStatusUpdatePayload) => {
+      if (!driverId) return;
+
       try {
-        await Trip.findByIdAndUpdate(data.tripId, { status: data.status });
-        emitToManagers('tripStatusChanged', { tripId: data.tripId, status: data.status });
+        // A driver may only start their own trip this way. Completing a trip stays gated to
+        // the destination branch manager via the REST endpoint (see tripController) - letting
+        // a driver self-complete here would bypass that "goods received" confirmation.
+        if (data.status !== 'in_transit') {
+          logger.warn('Rejected driver-initiated trip status change', { driverId, status: data.status });
+          return;
+        }
+
+        const trip = await Trip.findById(data.tripId);
+        if (!trip || trip.driverId.toString() !== driverId) {
+          logger.warn('Rejected trip status update for a trip that is not this driver\'s', {
+            driverId,
+            tripId: data.tripId,
+          });
+          return;
+        }
+
+        trip.status = 'in_transit';
+        trip.tripStartTime = new Date();
+        await trip.save();
+
+        emitToManagers('tripStatusChanged', { tripId: data.tripId, status: 'in_transit' });
+        emitToAdmins('tripStatusChanged', { tripId: data.tripId, status: 'in_transit' });
       } catch (error) {
         logger.error('updateTripStatus handler error', { error });
       }
