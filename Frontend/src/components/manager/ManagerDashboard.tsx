@@ -5,26 +5,18 @@ import { Branch } from '@/types/driver';
 import TeamMap from '@/components/shared/TeamMap';
 import DriverApprovalList from './DriverApprovalList';
 import BranchAnalytics from './BranchAnalytics';
-import Select from '@/components/shared/Select';
 
 export default function ManagerDashboard() {
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedBranchId, setSelectedBranchId] = useState('');
   const profile = useProfileStore((s) => s.profile);
+  // A manager only ever sees their own branch's analytics - unlike admin, there's no picker
+  // to switch to another branch's numbers.
+  const branchId = profile?.manager?.assignedBranchId;
+  const branchName = branches.find((b) => b._id === branchId)?.name;
 
   useEffect(() => {
     DriverService.getBranches().then((res) => setBranches(res.data?.branches ?? []));
   }, []);
-
-  useEffect(() => {
-    if (selectedBranchId) return;
-    const assignedBranchId = profile?.manager?.assignedBranchId;
-    if (assignedBranchId) {
-      setSelectedBranchId(assignedBranchId);
-    } else if (branches[0]) {
-      setSelectedBranchId(branches[0]._id);
-    }
-  }, [profile, branches, selectedBranchId]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,16 +33,10 @@ export default function ManagerDashboard() {
       </div>
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-semibold text-charcoal">Branch Analytics</h2>
-          <Select
-            className="w-48"
-            value={selectedBranchId}
-            onChange={setSelectedBranchId}
-            options={branches.map((b) => ({ value: b._id, label: b.name }))}
-          />
-        </div>
-        {selectedBranchId && <BranchAnalytics branchId={selectedBranchId} />}
+        <h2 className="mb-2 font-semibold text-charcoal">
+          Branch Analytics{branchName ? ` — ${branchName}` : ''}
+        </h2>
+        {branchId && <BranchAnalytics branchId={branchId} />}
       </div>
     </div>
   );
