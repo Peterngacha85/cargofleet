@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from '@/components/shared/Navbar';
 import Sidebar from '@/components/shared/Sidebar';
+import MobileBottomNav from '@/components/shared/MobileBottomNav';
 import CompleteProfileModal from '@/components/shared/CompleteProfileModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
@@ -18,19 +19,23 @@ import MyTrips from '@/components/driver/MyTrips';
 import DriverMapPage from '@/components/driver/DriverMapPage';
 import ManagerDashboard from '@/components/manager/ManagerDashboard';
 import ManagerMapPage from '@/components/manager/ManagerMapPage';
-import AdminPanel from '@/components/admin/AdminPanel';
-import DriverApprovalList from '@/components/manager/DriverApprovalList';
+import AdminOverview from '@/components/admin/AdminOverview';
+import AdminMapPage from '@/components/admin/AdminMapPage';
 import DriverRoster from '@/components/manager/DriverRoster';
 import VehicleList from '@/components/manager/VehicleList';
 import TripManagement from '@/components/manager/TripManagement';
 import BranchManagement from '@/components/admin/BranchManagement';
+import AllTripsList from '@/components/admin/AllTripsList';
+import DriverDirectory from '@/components/shared/DriverDirectory';
+import ManagerDirectory from '@/components/admin/ManagerDirectory';
 import UserManagement from '@/components/admin/UserManagement';
+import SystemAnalytics from '@/components/admin/SystemAnalytics';
 import VehicleVerificationList from '@/components/admin/VehicleVerificationList';
 import MyProfilePage from './MyProfilePage';
 
 function RoleHome() {
   const { role } = useAuth();
-  if (role === 'admin') return <AdminPanel />;
+  if (role === 'admin') return <AdminOverview />;
   if (role === 'manager') return <ManagerDashboard />;
   return <DriverDashboard />;
 }
@@ -173,11 +178,11 @@ export default function DashboardPage() {
     loaded && profile && profile.role !== 'admin' && !profile.profileComplete && !completionPromptDismissed;
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-dvh flex-col">
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-20 sm:p-6 md:pb-6">
           <Routes>
             <Route index element={<RoleHome />} />
             <Route path="profile" element={<MyProfilePage />} />
@@ -189,7 +194,6 @@ export default function DashboardPage() {
             )}
             {role === 'manager' && (
               <>
-                <Route path="drivers" element={<DriverApprovalList />} />
                 <Route path="my-drivers" element={<DriverRoster />} />
                 <Route path="vehicles" element={<VehicleList />} />
                 <Route path="trips" element={<TripManagement />} />
@@ -198,9 +202,14 @@ export default function DashboardPage() {
             )}
             {role === 'admin' && (
               <>
+                <Route path="map" element={<AdminMapPage />} />
                 <Route path="branches" element={<BranchManagement />} />
-                <Route path="managers" element={<UserManagement />} />
+                <Route path="trips" element={<AllTripsList />} />
+                <Route path="drivers" element={<DriverDirectory />} />
+                <Route path="managers" element={<ManagerDirectory />} />
                 <Route path="vehicles" element={<VehicleVerificationList />} />
+                <Route path="pending" element={<UserManagement />} />
+                <Route path="analytics" element={<SystemAnalytics />} />
               </>
             )}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -211,6 +220,8 @@ export default function DashboardPage() {
       {showCompleteProfileModal && (
         <CompleteProfileModal role={profile!.role as 'driver' | 'manager'} onClose={dismissCompletionPrompt} />
       )}
+
+      <MobileBottomNav />
     </div>
   );
 }
