@@ -45,18 +45,29 @@ const markerHex: Record<MarkerColor, string> = {
   red: '#EF4444',
 };
 
+// Material Design's "directions_car" glyph (viewBox 0 0 24 24) - simple enough to read at
+// marker size, unlike a full truck illustration.
+const CAR_ICON_PATH =
+  'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16C5.67 16 5 15.33 5 14.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z';
+
+function vehicleIconHtml(colorHex: string) {
+  return `<div style="width:28px;height:28px;border-radius:8px;background:${colorHex};border:2px solid #1F2937;box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="#1F2937"><path d="${CAR_ICON_PATH}"/></svg>
+  </div>`;
+}
+
 const driverIcons: Record<MarkerColor, L.DivIcon> = {
   green: L.divIcon({
     className: '',
-    html: `<div style="width:16px;height:16px;border-radius:9999px;background:${markerHex.green};border:2px solid #1F2937;"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    html: vehicleIconHtml(markerHex.green),
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   }),
   red: L.divIcon({
     className: '',
-    html: `<div style="width:16px;height:16px;border-radius:9999px;background:${markerHex.red};border:2px solid #1F2937;"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+    html: vehicleIconHtml(markerHex.red),
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   }),
 };
 
