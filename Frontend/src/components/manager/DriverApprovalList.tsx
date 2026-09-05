@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { DriverService } from '@/services/driverService';
 import { Driver, Branch, DriverUserSummary } from '@/types/driver';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -6,6 +7,7 @@ import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
 import Select from '@/components/shared/Select';
+import EmptyState from '@/components/shared/EmptyState';
 
 export default function DriverApprovalList() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -65,7 +67,7 @@ export default function DriverApprovalList() {
   };
 
   if (drivers.length === 0) {
-    return <p className="text-sm text-gray-500">No pending driver registrations.</p>;
+    return <EmptyState icon={CheckCircle2} title="All caught up" description="No pending driver registrations." />;
   }
 
   return (

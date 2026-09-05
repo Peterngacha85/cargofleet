@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { api } from '@/services/api';
 import { DriverService } from '@/services/driverService';
 import { Branch } from '@/types/driver';
@@ -7,6 +8,7 @@ import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
 import Select from '@/components/shared/Select';
+import EmptyState from '@/components/shared/EmptyState';
 
 interface PendingManager {
   _id: string;
@@ -71,7 +73,7 @@ export default function ManagerVerification() {
   };
 
   if (managers.length === 0) {
-    return <p className="text-sm text-gray-500">No pending manager registrations.</p>;
+    return <EmptyState icon={CheckCircle2} title="All caught up" description="No pending manager registrations." />;
   }
 
   return (
