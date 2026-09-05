@@ -38,6 +38,34 @@ function FlyToMarker({
   return null;
 }
 
+// Auto-fits the view to whoever's currently sharing, so a driver miles from the default
+// center isn't invisible off-screen. Keyed on the *set* of driver ids (not their coordinates)
+// so it only re-fits when someone starts/stops sharing - not on every GPS tick, which would
+// otherwise keep yanking the map away from a user who's trying to pan around.
+function FitToMarkers({ markers }: { markers: DriverLocationUpdate[] }) {
+  const map = useMap();
+  const lastKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (markers.length === 0) return;
+    const key = markers
+      .map((m) => m.driverId)
+      .sort()
+      .join(',');
+    if (key === lastKeyRef.current) return;
+    lastKeyRef.current = key;
+
+    if (markers.length === 1) {
+      map.setView([markers[0].latitude, markers[0].longitude], 15);
+    } else {
+      const bounds = L.latLngBounds(markers.map((m): [number, number] => [m.latitude, m.longitude]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [markers, map]);
+
+  return null;
+}
+
 export type MarkerColor = 'green' | 'red';
 
 const markerHex: Record<MarkerColor, string> = {
@@ -97,6 +125,7 @@ export default function MapComponent({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <FitToMarkers markers={markers} />
       <FlyToMarker markers={markers} focusRequest={focusRequest} />
       {markers.map((m) => (
         <Marker
