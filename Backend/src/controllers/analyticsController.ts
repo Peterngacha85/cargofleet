@@ -29,13 +29,25 @@ export const getBranchAnalytics = async (req: Request, res: Response) => {
     const totalEarnings = completedTrips.reduce((sum, t) => sum + t.totalEarnings, 0);
     const totalKilometers = trips.reduce((sum, t) => sum + t.distance, 0);
 
-    const drivers = await Driver.find({ branchId }).sort({ avgRating: -1, totalTrips: -1 }).limit(1);
-    const topDriver = drivers[0]
-      ? { name: 'Top Driver', trips: drivers[0].totalTrips, rating: drivers[0].avgRating }
-      : null;
+    const rankedDrivers = await Driver.find({ branchId }).sort({ avgRating: -1, totalTrips: -1 });
+    const top = rankedDrivers[0];
+    let topDriver = null;
+    if (top) {
+      const topUser = await top.populate<{ userId: { firstName: string; lastName: string } }>(
+        'userId',
+        'firstName lastName'
+      );
+      topDriver = {
+        name: `${topUser.userId.firstName} ${topUser.userId.lastName}`.trim(),
+        trips: top.totalTrips,
+        rating: top.avgRating,
+      };
+    }
 
     const averageRating =
-      drivers.length > 0 ? drivers.reduce((sum, d) => sum + d.avgRating, 0) / drivers.length : 0;
+      rankedDrivers.length > 0
+        ? rankedDrivers.reduce((sum, d) => sum + d.avgRating, 0) / rankedDrivers.length
+        : 0;
 
     return sendSuccess(res, 200, 'Branch analytics retrieved', {
       analytics: {
