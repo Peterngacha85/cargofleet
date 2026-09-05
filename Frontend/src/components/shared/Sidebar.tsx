@@ -1,42 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
-import { LayoutDashboard, Users, UsersRound, Truck, Building2, UserCircle, Route, Package, Map } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useApprovalsStore } from '@/stores/approvalsStore';
-
-type BadgeKey = 'pendingDriverCount' | 'pendingManagerCount' | 'pendingVehicleCount' | 'scheduledTripCount';
-
-interface SidebarLink {
-  to: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  badgeKey?: BadgeKey;
-}
-
-const linksByRole: Record<string, SidebarLink[]> = {
-  driver: [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/dashboard/map', label: 'My Map', icon: Map },
-    { to: '/dashboard/trips', label: 'My Trips', icon: Package, badgeKey: 'scheduledTripCount' },
-    { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
-  ],
-  manager: [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/dashboard/map', label: 'Map', icon: Map },
-    { to: '/dashboard/drivers', label: 'Pending Drivers', icon: Users, badgeKey: 'pendingDriverCount' },
-    { to: '/dashboard/my-drivers', label: 'My Drivers', icon: UsersRound },
-    { to: '/dashboard/vehicles', label: 'Vehicles', icon: Truck },
-    { to: '/dashboard/trips', label: 'Trips', icon: Route },
-    { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
-  ],
-  admin: [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/dashboard/branches', label: 'Branches', icon: Building2 },
-    { to: '/dashboard/managers', label: 'Managers', icon: Users, badgeKey: 'pendingManagerCount' },
-    { to: '/dashboard/vehicles', label: 'Vehicles', icon: Truck, badgeKey: 'pendingVehicleCount' },
-    { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
-  ],
-};
+import { linksByRole, BadgeKey } from '@/config/navLinks';
 
 export default function Sidebar() {
   const { role } = useAuth();
@@ -51,6 +17,7 @@ export default function Sidebar() {
     pendingManagerCount,
     pendingVehicleCount,
     scheduledTripCount,
+    pendingApprovalsCount: pendingDriverCount + pendingManagerCount,
   };
 
   return (

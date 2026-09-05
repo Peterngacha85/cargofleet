@@ -1,3 +1,6 @@
+import { LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { useProfileStore } from '@/stores/profileStore';
 import Avatar from '@/components/shared/Avatar';
 import DetailField from '@/components/shared/DetailField';
@@ -6,6 +9,13 @@ import { formatDate, statusLabel } from '@/utils/formatters';
 
 export default function MyProfilePage() {
   const profile = useProfileStore((s) => s.profile);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   if (!profile) {
     return <LoadingSpinner />;
@@ -68,6 +78,14 @@ export default function MyProfilePage() {
       {profile.role === 'admin' && (
         <p className="text-sm text-gray-500">Super admin credentials are managed via environment configuration.</p>
       )}
+
+      <button
+        onClick={handleLogout}
+        className="btn-secondary flex w-fit items-center gap-2 text-charcoal hover:text-red-600"
+      >
+        <LogOut className="h-4 w-4" />
+        Logout
+      </button>
     </div>
   );
 }
