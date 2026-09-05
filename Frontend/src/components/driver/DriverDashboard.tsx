@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/services/api';
 import { useProfileStore } from '@/stores/profileStore';
 import { useTripTrackingStore } from '@/stores/tripTrackingStore';
+import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import MapComponent from '@/components/map/MapComponent';
 import ActiveTrips, { TripSummary } from './ActiveTrips';
@@ -16,6 +17,7 @@ export default function DriverDashboard() {
   const profile = useProfileStore((s) => s.profile);
   const push = useNotificationStore((s) => s.push);
   const { activeTripId, activeTripNumber, position, stopTrip } = useTripTrackingStore();
+  const focusRequest = useMapFocusStore((s) => s.focusRequest);
 
   useEffect(() => {
     const driverId = profile?.driver?._id;
@@ -78,7 +80,7 @@ export default function DriverDashboard() {
       </div>
 
       <div className="h-80 w-full">
-        <MapComponent markers={marker} labelFor={() => user?.firstName ?? 'You'} />
+        <MapComponent markers={marker} labelFor={() => user?.firstName ?? 'You'} focusRequest={focusRequest} />
       </div>
     </div>
   );

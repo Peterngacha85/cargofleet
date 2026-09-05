@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
 import { useMap } from '@/hooks/useMap';
 import { useProfileStore } from '@/stores/profileStore';
+import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { DriverService } from '@/services/driverService';
 import { Driver, DriverUserSummary, PopulatedBranchSummary } from '@/types/driver';
 import MapComponent, { MarkerColor } from '@/components/map/MapComponent';
@@ -20,6 +21,7 @@ export default function TeamMap() {
   );
   const { driverLocations, upsertDriverLocation } = useMap();
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const focusRequest = useMapFocusStore((s) => s.focusRequest);
 
   useEffect(() => {
     DriverService.list({ status: 'active' }).then((res) => setDrivers(res.data?.drivers ?? []));
@@ -58,7 +60,12 @@ export default function TeamMap() {
 
   return (
     <div className="h-96 w-full">
-      <MapComponent markers={Object.values(driverLocations)} labelFor={labelFor} markerColorFor={markerColorFor} />
+      <MapComponent
+        markers={Object.values(driverLocations)}
+        labelFor={labelFor}
+        markerColorFor={markerColorFor}
+        focusRequest={focusRequest}
+      />
     </div>
   );
 }

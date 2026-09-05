@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
@@ -8,6 +9,7 @@ import { Driver, DriverUserSummary } from '@/types/driver';
 import { Vehicle } from '@/types/vehicle';
 import { Branch } from '@/types/driver';
 import { useProfileStore } from '@/stores/profileStore';
+import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { statusLabel } from '@/utils/formatters';
 import { DEFAULT_MAP_CENTER } from '@/utils/constants';
@@ -52,6 +54,8 @@ export default function TripManagement() {
   });
   const profile = useProfileStore((s) => s.profile);
   const push = useNotificationStore((s) => s.push);
+  const requestFocus = useMapFocusStore((s) => s.requestFocus);
+  const navigate = useNavigate();
   const branchId = profile?.manager?.assignedBranchId;
 
   const loadTrips = () => {
@@ -98,6 +102,13 @@ export default function TripManagement() {
 
   const isDestinationManager = (trip: Trip) => idOf(trip.destinationBranchId) === branchId;
   const isCrossBranch = (trip: Trip) => idOf(trip.branchId) !== idOf(trip.destinationBranchId);
+
+  const handleShowOnMap = (trip: Trip) => {
+    const driverId = idOf(trip.driverId);
+    if (!driverId) return;
+    requestFocus(driverId);
+    navigate('/dashboard');
+  };
 
   const handleMarkReceived = async (tripId: string) => {
     const response = await TripService.updateStatus(tripId, 'completed');
@@ -436,6 +447,15 @@ export default function TripManagement() {
                     <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[trip.status]}`}>
                       {statusLabel(trip.status)}
                     </span>
+                    {trip.status === 'in_transit' && (
+                      <button
+                        className="btn-secondary flex items-center gap-1"
+                        onClick={() => handleShowOnMap(trip)}
+                      >
+                        <MapPin className="h-4 w-4" />
+                        Show on Map
+                      </button>
+                    )}
                     {canMarkReceived && (
                       <button className="btn-primary" onClick={() => handleMarkReceived(trip._id)}>
                         Mark Received

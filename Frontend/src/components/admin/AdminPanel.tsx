@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import BranchManagement from './BranchManagement';
 import DriverDirectory from '@/components/shared/DriverDirectory';
@@ -6,10 +6,13 @@ import TeamMap from '@/components/shared/TeamMap';
 import ManagerDirectory from './ManagerDirectory';
 import UserManagement from './UserManagement';
 import SystemAnalytics from './SystemAnalytics';
+import AllTripsList from './AllTripsList';
+import { useMapFocusStore } from '@/stores/mapFocusStore';
 
 const tabs = [
   { key: 'branches', label: 'Branches', Component: BranchManagement },
   { key: 'map', label: 'Live Map', Component: TeamMap },
+  { key: 'trips', label: 'Trips', Component: AllTripsList },
   { key: 'drivers', label: 'Drivers', Component: DriverDirectory },
   { key: 'managers', label: 'Managers', Component: ManagerDirectory },
   { key: 'pending', label: 'Pending Approvals', Component: UserManagement },
@@ -19,6 +22,14 @@ const tabs = [
 export default function AdminPanel() {
   const [active, setActive] = useState<(typeof tabs)[number]['key']>('branches');
   const ActiveComponent = tabs.find((t) => t.key === active)?.Component ?? BranchManagement;
+  const focusRequest = useMapFocusStore((s) => s.focusRequest);
+
+  // "Show on Map" from the Trips tab sets a focus request - jump to the Live Map tab so
+  // the fly-to animation is actually visible, since Live Map isn't its own route here.
+  useEffect(() => {
+    if (focusRequest) setActive('map');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest]);
 
   return (
     <div className="flex flex-col gap-4">
