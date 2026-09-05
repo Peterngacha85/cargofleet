@@ -95,7 +95,7 @@ export default function MyTrips() {
   const handleShowOnMap = () => {
     if (!driverId) return;
     requestFocus(driverId);
-    navigate('/dashboard');
+    navigate('/dashboard/map');
   };
 
   if (trips.length === 0) {
@@ -153,17 +153,19 @@ export default function MyTrips() {
 
             {trip.status === 'in_transit' && (
               <div className="flex items-center gap-2">
-                <button
-                  className="btn-secondary flex items-center gap-1"
-                  onClick={handleShowOnMap}
-                >
-                  <MapPin className="h-4 w-4" />
-                  Show on Map
-                </button>
                 {activeTripId === trip._id ? (
-                  <button className="btn-secondary" onClick={handleStopSharing}>
-                    Stop Sharing
-                  </button>
+                  <>
+                    <button
+                      className="btn-secondary flex items-center gap-1"
+                      onClick={handleShowOnMap}
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Show on Map
+                    </button>
+                    <button className="btn-secondary" onClick={handleStopSharing}>
+                      Stop Sharing
+                    </button>
+                  </>
                 ) : (
                   <button className="btn-primary" onClick={() => handleResumeSharing(trip)}>
                     Resume Sharing

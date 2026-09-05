@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin } from 'lucide-react';
+import { MapPin, Radio } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
+import { requestLocationSharing } from '@/services/socketService';
 import { Trip } from '@/types/trip';
 import { Driver, DriverUserSummary } from '@/types/driver';
 import { Vehicle } from '@/types/vehicle';
 import { Branch } from '@/types/driver';
+import { useAuth } from '@/hooks/useAuth';
+import { useMap } from '@/hooks/useMap';
 import { useProfileStore } from '@/stores/profileStore';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -52,9 +55,12 @@ export default function TripManagement() {
     pickup: false,
     dropoff: false,
   });
+  const [requestingShareFor, setRequestingShareFor] = useState<string | null>(null);
   const profile = useProfileStore((s) => s.profile);
   const push = useNotificationStore((s) => s.push);
   const requestFocus = useMapFocusStore((s) => s.requestFocus);
+  const { user } = useAuth();
+  const { driverLocations } = useMap();
   const navigate = useNavigate();
   const branchId = profile?.manager?.assignedBranchId;
 
@@ -107,7 +113,22 @@ export default function TripManagement() {
     const driverId = idOf(trip.driverId);
     if (!driverId) return;
     requestFocus(driverId);
-    navigate('/dashboard');
+    navigate('/dashboard/map');
+  };
+
+  const handleRequestSharing = async (trip: Trip) => {
+    const driverId = idOf(trip.driverId);
+    if (!driverId || !user) return;
+    setRequestingShareFor(trip._id);
+    try {
+      const response = await requestLocationSharing('manager', { managerId: user.id }, driverId, trip._id);
+      push(
+        response.success ? `Asked ${tripDriverName(trip)} to resume sharing their location.` : response.message,
+        response.success ? 'success' : 'error'
+      );
+    } finally {
+      setRequestingShareFor(null);
+    }
   };
 
   const handleMarkReceived = async (tripId: string) => {
@@ -422,6 +443,8 @@ export default function TripManagement() {
               const crossBranch = isCrossBranch(trip);
               const inbound = crossBranch && isDestinationManager(trip);
               const canMarkReceived = inbound && trip.status !== 'completed' && trip.status !== 'cancelled';
+              const driverId = idOf(trip.driverId);
+              const isSharing = !!driverId && !!driverLocations[driverId];
 
               return (
                 <li key={trip._id} className="card flex flex-wrap items-center justify-between gap-2">
@@ -447,7 +470,7 @@ export default function TripManagement() {
                     <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[trip.status]}`}>
                       {statusLabel(trip.status)}
                     </span>
-                    {trip.status === 'in_transit' && (
+                    {trip.status === 'in_transit' && isSharing && (
                       <button
                         className="btn-secondary flex items-center gap-1"
                         onClick={() => handleShowOnMap(trip)}
@@ -455,6 +478,21 @@ export default function TripManagement() {
                         <MapPin className="h-4 w-4" />
                         Show on Map
                       </button>
+                    )}
+                    {trip.status === 'in_transit' && !isSharing && (
+                      <>
+                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                          <Radio className="h-3.5 w-3.5" />
+                          Not sharing location
+                        </span>
+                        <button
+                          className="btn-secondary flex items-center gap-1"
+                          onClick={() => handleRequestSharing(trip)}
+                          disabled={requestingShareFor === trip._id}
+                        >
+                          {requestingShareFor === trip._id ? 'Requesting…' : 'Request Sharing'}
+                        </button>
+                      </>
                     )}
                     {canMarkReceived && (
                       <button className="btn-primary" onClick={() => handleMarkReceived(trip._id)}>

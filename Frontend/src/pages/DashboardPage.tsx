@@ -10,10 +10,14 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useTripTrackingStore } from '@/stores/tripTrackingStore';
+import { useMap } from '@/hooks/useMap';
 import { TripService } from '@/services/tripService';
+import { DriverLocationUpdate } from '@/types/map';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import MyTrips from '@/components/driver/MyTrips';
+import DriverMapPage from '@/components/driver/DriverMapPage';
 import ManagerDashboard from '@/components/manager/ManagerDashboard';
+import ManagerMapPage from '@/components/manager/ManagerMapPage';
 import AdminPanel from '@/components/admin/AdminPanel';
 import DriverApprovalList from '@/components/manager/DriverApprovalList';
 import DriverRoster from '@/components/manager/DriverRoster';
@@ -56,6 +60,7 @@ export default function DashboardPage() {
   const setTrackedPosition = useTripTrackingStore((s) => s.setPosition);
   const startTrackedTrip = useTripTrackingStore((s) => s.startTrip);
   const { position } = useLocation(role === 'driver' && !!activeTripId);
+  const { upsertDriverLocation, removeDriverLocation } = useMap();
 
   useEffect(() => {
     fetchProfile();
@@ -101,6 +106,16 @@ export default function DashboardPage() {
     });
   }, [position, activeTripId, registrationSocketRef]);
 
+  // Tells managers/admins to drop this driver's marker the instant sharing stops, rather than
+  // leaving it frozen at its last position until someone happens to refresh their map.
+  const prevActiveTripIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevActiveTripIdRef.current && !activeTripId) {
+      registrationSocketRef.current?.emit('stopSharing');
+    }
+    prevActiveTripIdRef.current = activeTripId;
+  }, [activeTripId, registrationSocketRef]);
+
   // Live badge/toast for new registrations, kept here (not in the list pages) so it fires
   // no matter which dashboard sub-page the manager/admin currently has open.
   useEffect(() => {
@@ -124,16 +139,32 @@ export default function DashboardPage() {
       push(`New trip assigned: ${payload.tripNumber} to ${payload.dropoffAddress}`, 'info');
     };
 
+    // Tracked here (not in TeamMap) so "is this driver currently sharing?" stays accurate
+    // for the Trips tab too, even when the Live Map tab isn't the one mounted right now.
+    const handleLocationUpdate = (update: DriverLocationUpdate) => upsertDriverLocation(update);
+    const handleStoppedSharing = ({ driverId }: { driverId: string }) => removeDriverLocation(driverId);
+
+    // A manager/admin asked this driver (from the Trips tab) to resume sharing their location.
+    const handleSharingRequested = (payload: { tripNumber: string; requestedByRole: string }) => {
+      push(`${payload.requestedByRole === 'admin' ? 'Admin' : 'A manager'} asked you to resume sharing your location for trip ${payload.tripNumber}.`, 'warning');
+    };
+
     socket.on('newDriverRegistration', handleNewDriver);
     socket.on('newManagerRegistration', handleNewManager);
     socket.on('newVehicleRegistration', handleNewVehicle);
     socket.on('tripAssigned', handleTripAssigned);
+    socket.on('driverLocationUpdate', handleLocationUpdate);
+    socket.on('driverStoppedSharing', handleStoppedSharing);
+    socket.on('locationSharingRequested', handleSharingRequested);
 
     return () => {
       socket.off('newDriverRegistration', handleNewDriver);
       socket.off('newManagerRegistration', handleNewManager);
       socket.off('newVehicleRegistration', handleNewVehicle);
       socket.off('tripAssigned', handleTripAssigned);
+      socket.off('driverLocationUpdate', handleLocationUpdate);
+      socket.off('driverStoppedSharing', handleStoppedSharing);
+      socket.off('locationSharingRequested', handleSharingRequested);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrationSocketRef]);
@@ -150,13 +181,19 @@ export default function DashboardPage() {
           <Routes>
             <Route index element={<RoleHome />} />
             <Route path="profile" element={<MyProfilePage />} />
-            {role === 'driver' && <Route path="trips" element={<MyTrips />} />}
+            {role === 'driver' && (
+              <>
+                <Route path="trips" element={<MyTrips />} />
+                <Route path="map" element={<DriverMapPage />} />
+              </>
+            )}
             {role === 'manager' && (
               <>
                 <Route path="drivers" element={<DriverApprovalList />} />
                 <Route path="my-drivers" element={<DriverRoster />} />
                 <Route path="vehicles" element={<VehicleList />} />
                 <Route path="trips" element={<TripManagement />} />
+                <Route path="map" element={<ManagerMapPage />} />
               </>
             )}
             {role === 'admin' && (

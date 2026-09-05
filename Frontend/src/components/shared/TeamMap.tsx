@@ -1,43 +1,32 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useSocket } from '@/hooks/useSocket';
 import { useMap } from '@/hooks/useMap';
 import { useProfileStore } from '@/stores/profileStore';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { DriverService } from '@/services/driverService';
 import { Driver, DriverUserSummary, PopulatedBranchSummary } from '@/types/driver';
 import MapComponent, { MarkerColor } from '@/components/map/MapComponent';
-import { DriverLocationUpdate } from '@/types/map';
 
-export default function TeamMap() {
-  const { user, role } = useAuth();
+interface TeamMapProps {
+  // Admin's Live Map tab wants to fill the remaining page height; embedded elsewhere
+  // (e.g. ManagerDashboard, stacked above other cards) it keeps its original fixed height.
+  fullHeight?: boolean;
+}
+
+export default function TeamMap({ fullHeight }: TeamMapProps) {
+  const { role } = useAuth();
   const profile = useProfileStore((s) => s.profile);
   const myBranchId = profile?.manager?.assignedBranchId;
 
-  const socketRef = useSocket(
-    role === 'admin' ? 'admin' : 'manager',
-    role === 'admin' ? { adminId: user?.id ?? '' } : { managerId: user?.id ?? '' },
-    !!user
-  );
-  const { driverLocations, upsertDriverLocation } = useMap();
+  // Live location updates are tracked centrally in DashboardPage (into mapStore) so they keep
+  // flowing no matter which sub-page/tab is mounted - this just reads that shared state.
+  const { driverLocations } = useMap();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const focusRequest = useMapFocusStore((s) => s.focusRequest);
 
   useEffect(() => {
     DriverService.list({ status: 'active' }).then((res) => setDrivers(res.data?.drivers ?? []));
   }, []);
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handler = (update: DriverLocationUpdate) => upsertDriverLocation(update);
-    socket.on('driverLocationUpdate', handler);
-
-    return () => {
-      socket.off('driverLocationUpdate', handler);
-    };
-  }, [socketRef, upsertDriverLocation]);
 
   const labelFor = (driverId: string) => {
     const driver = drivers.find((d) => d._id === driverId);
@@ -59,7 +48,7 @@ export default function TeamMap() {
   };
 
   return (
-    <div className="h-96 w-full">
+    <div className={fullHeight ? 'h-[calc(100vh-180px)] w-full' : 'h-96 w-full'}>
       <MapComponent
         markers={Object.values(driverLocations)}
         labelFor={labelFor}

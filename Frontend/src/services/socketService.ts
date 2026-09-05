@@ -18,6 +18,21 @@ export const connectSocket = (namespace: Namespace, auth: Record<string, string>
   return socket;
 };
 
+// Used from the manager/admin Trips views to nudge a driver whose in-transit trip has no
+// marker on the map (they stopped sharing) - relies on the backend's ack callback so the
+// caller can show a "request sent" vs. "failed" toast instead of firing blind.
+export const requestLocationSharing = (
+  namespace: 'manager' | 'admin',
+  auth: Record<string, string>,
+  driverId: string,
+  tripId: string
+): Promise<{ success: boolean; message: string }> => {
+  const socket = connectSocket(namespace, auth);
+  return new Promise((resolve) => {
+    socket.emit('requestLocationSharing', { driverId, tripId }, resolve);
+  });
+};
+
 export const disconnectSocket = (namespace: Namespace) => {
   sockets[namespace]?.disconnect();
   delete sockets[namespace];

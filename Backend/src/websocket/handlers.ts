@@ -4,8 +4,40 @@ import Driver from '../models/Driver';
 import Manager from '../models/Manager';
 import { recordDriverLocation } from '../services/locationService';
 import { DriverLocationPayload, TripStatusUpdatePayload } from '../types/websocket';
-import { emitToManagers, emitToDrivers, emitToAdmins } from './emitters';
+import { emitToManagers, emitToDrivers, emitToAdmins, emitToDriver } from './emitters';
 import { logger } from '../utils/logger';
+
+// Shared by both the manager and admin namespaces - a manager/admin sees a stale "in transit"
+// trip with no marker (driver stopped sharing) and asks that driver to resume, without either
+// side needing to know the other's socket namespace directly.
+const handleRequestLocationSharing =
+  (requestedByRole: 'manager' | 'admin') =>
+  async (
+    data: { driverId: string; tripId: string },
+    ack?: (response: { success: boolean; message: string }) => void
+  ) => {
+    try {
+      const trip = await Trip.findById(data.tripId).select('tripNumber driverId status');
+      if (!trip || trip.driverId.toString() !== data.driverId) {
+        ack?.({ success: false, message: 'Trip not found' });
+        return;
+      }
+      if (trip.status !== 'in_transit') {
+        ack?.({ success: false, message: `This trip is ${trip.status}, not in transit` });
+        return;
+      }
+
+      emitToDriver(data.driverId, 'locationSharingRequested', {
+        tripId: data.tripId,
+        tripNumber: trip.tripNumber,
+        requestedByRole,
+      });
+      ack?.({ success: true, message: 'Request sent to driver' });
+    } catch (error) {
+      logger.error('requestLocationSharing handler error', { error });
+      ack?.({ success: false, message: 'Failed to send request' });
+    }
+  };
 
 export const registerDriverNamespaceHandlers = (namespace: Namespace) => {
   namespace.on('connection', (socket: Socket) => {
@@ -51,6 +83,14 @@ export const registerDriverNamespaceHandlers = (namespace: Namespace) => {
       } catch (error) {
         logger.error('sendLocation handler error', { error });
       }
+    });
+
+    // Lets other clients drop this driver's marker immediately instead of it sitting frozen
+    // at its last known position until whoever's watching happens to refresh.
+    socket.on('stopSharing', () => {
+      if (!driverId) return;
+      emitToManagers('driverStoppedSharing', { driverId });
+      emitToAdmins('driverStoppedSharing', { driverId });
     });
 
     socket.on(
@@ -147,6 +187,8 @@ export const registerManagerNamespaceHandlers = (namespace: Namespace) => {
       }
     );
 
+    socket.on('requestLocationSharing', handleRequestLocationSharing('manager'));
+
     socket.on('disconnect', () => {
       logger.info(`Manager ${managerId ?? 'unknown'} disconnected`);
     });
@@ -174,6 +216,8 @@ export const registerAdminNamespaceHandlers = (namespace: Namespace) => {
         }
       }
     );
+
+    socket.on('requestLocationSharing', handleRequestLocationSharing('admin'));
 
     socket.on('disconnect', () => {
       logger.info('Admin disconnected');
