@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
-import { LayoutDashboard, Users, UsersRound, Truck, Building2, UserCircle, Route, Package } from 'lucide-react';
+import { LayoutDashboard, Users, UsersRound, Truck, Building2, UserCircle, Route, Package, Map } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 
@@ -16,11 +16,13 @@ interface SidebarLink {
 const linksByRole: Record<string, SidebarLink[]> = {
   driver: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/dashboard/map', label: 'My Map', icon: Map },
     { to: '/dashboard/trips', label: 'My Trips', icon: Package, badgeKey: 'scheduledTripCount' },
     { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
   ],
   manager: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/dashboard/map', label: 'Map', icon: Map },
     { to: '/dashboard/drivers', label: 'Pending Drivers', icon: Users, badgeKey: 'pendingDriverCount' },
     { to: '/dashboard/my-drivers', label: 'My Drivers', icon: UsersRound },
     { to: '/dashboard/vehicles', label: 'Vehicles', icon: Truck },
