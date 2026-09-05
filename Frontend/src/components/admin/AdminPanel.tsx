@@ -10,8 +10,8 @@ import AllTripsList from './AllTripsList';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 
 const tabs = [
-  { key: 'branches', label: 'Branches', Component: BranchManagement },
   { key: 'map', label: 'Live Map', Component: TeamMap },
+  { key: 'branches', label: 'Branches', Component: BranchManagement },
   { key: 'trips', label: 'Trips', Component: AllTripsList },
   { key: 'drivers', label: 'Drivers', Component: DriverDirectory },
   { key: 'managers', label: 'Managers', Component: ManagerDirectory },
@@ -19,10 +19,25 @@ const tabs = [
   { key: 'analytics', label: 'System Analytics', Component: SystemAnalytics },
 ] as const;
 
+type TabKey = (typeof tabs)[number]['key'];
+
+// Tabs live outside the URL, so without this a refresh always bounced the admin back to
+// whatever the default tab is instead of leaving them where they were.
+const ACTIVE_TAB_STORAGE_KEY = 'cargofleet.adminActiveTab';
+
+function getStoredTab(): TabKey {
+  const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+  return tabs.some((t) => t.key === stored) ? (stored as TabKey) : 'map';
+}
+
 export default function AdminPanel() {
-  const [active, setActive] = useState<(typeof tabs)[number]['key']>('branches');
-  const ActiveComponent = tabs.find((t) => t.key === active)?.Component ?? BranchManagement;
+  const [active, setActive] = useState<TabKey>(getStoredTab);
+  const ActiveComponent = tabs.find((t) => t.key === active)?.Component ?? TeamMap;
   const focusRequest = useMapFocusStore((s) => s.focusRequest);
+
+  useEffect(() => {
+    localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, active);
+  }, [active]);
 
   // "Show on Map" from the Trips tab sets a focus request - jump to the Live Map tab so
   // the fly-to animation is actually visible, since Live Map isn't its own route here.
@@ -47,7 +62,7 @@ export default function AdminPanel() {
           </button>
         ))}
       </div>
-      <ActiveComponent />
+      {active === 'map' ? <TeamMap fullHeight /> : <ActiveComponent />}
     </div>
   );
 }
