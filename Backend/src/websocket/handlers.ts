@@ -53,37 +53,65 @@ export const registerDriverNamespaceHandlers = (namespace: Namespace) => {
       }
     });
 
-    socket.on('updateTripStatus', async (data: TripStatusUpdatePayload) => {
-      if (!driverId) return;
-
-      try {
-        // A driver may only start their own trip this way. Completing a trip stays gated to
-        // the destination branch manager via the REST endpoint (see tripController) - letting
-        // a driver self-complete here would bypass that "goods received" confirmation.
-        if (data.status !== 'in_transit') {
-          logger.warn('Rejected driver-initiated trip status change', { driverId, status: data.status });
+    socket.on(
+      'updateTripStatus',
+      async (data: TripStatusUpdatePayload, ack?: (response: { success: boolean; message: string }) => void) => {
+        if (!driverId) {
+          ack?.({ success: false, message: 'Not authenticated' });
           return;
         }
 
-        const trip = await Trip.findById(data.tripId);
-        if (!trip || trip.driverId.toString() !== driverId) {
-          logger.warn('Rejected trip status update for a trip that is not this driver\'s', {
-            driverId,
-            tripId: data.tripId,
-          });
-          return;
+        try {
+          // A driver may only start their own trip this way. Completing a trip stays gated to
+          // the destination branch manager via the REST endpoint (see tripController) - letting
+          // a driver self-complete here would bypass that "goods received" confirmation.
+          if (data.status !== 'in_transit') {
+            logger.warn('Rejected driver-initiated trip status change', { driverId, status: data.status });
+            ack?.({ success: false, message: 'Unsupported status change' });
+            return;
+          }
+
+          const trip = await Trip.findById(data.tripId);
+          if (!trip || trip.driverId.toString() !== driverId) {
+            logger.warn('Rejected trip status update for a trip that is not this driver\'s', {
+              driverId,
+              tripId: data.tripId,
+            });
+            ack?.({ success: false, message: 'Trip not found' });
+            return;
+          }
+
+          if (trip.status !== 'scheduled') {
+            ack?.({ success: false, message: `This trip is already ${trip.status}` });
+            return;
+          }
+
+          // A driver can only be actively tracked on one trip at a time - otherwise location
+          // updates would silently stop reaching whichever trip isn't the most recently started,
+          // leaving it stuck "in transit" forever with nobody sending it updates.
+          const existingActiveTrip = await Trip.findOne({ driverId, status: 'in_transit' });
+          if (existingActiveTrip) {
+            ack?.({
+              success: false,
+              message: `You already have an active trip (${existingActiveTrip.tripNumber}). Complete it before starting another.`,
+            });
+            return;
+          }
+
+          trip.status = 'in_transit';
+          trip.tripStartTime = new Date();
+          await trip.save();
+
+          emitToManagers('tripStatusChanged', { tripId: data.tripId, status: 'in_transit' });
+          emitToAdmins('tripStatusChanged', { tripId: data.tripId, status: 'in_transit' });
+
+          ack?.({ success: true, message: 'Trip started' });
+        } catch (error) {
+          logger.error('updateTripStatus handler error', { error });
+          ack?.({ success: false, message: 'Failed to start trip' });
         }
-
-        trip.status = 'in_transit';
-        trip.tripStartTime = new Date();
-        await trip.save();
-
-        emitToManagers('tripStatusChanged', { tripId: data.tripId, status: 'in_transit' });
-        emitToAdmins('tripStatusChanged', { tripId: data.tripId, status: 'in_transit' });
-      } catch (error) {
-        logger.error('updateTripStatus handler error', { error });
       }
-    });
+    );
 
     socket.on('disconnect', () => {
       logger.info(`Driver ${driverId ?? 'unknown'} disconnected`);

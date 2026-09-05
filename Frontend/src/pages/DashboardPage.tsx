@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from '@/components/shared/Navbar';
 import Sidebar from '@/components/shared/Sidebar';
@@ -10,6 +10,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useTripTrackingStore } from '@/stores/tripTrackingStore';
+import { TripService } from '@/services/tripService';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import MyTrips from '@/components/driver/MyTrips';
 import ManagerDashboard from '@/components/manager/ManagerDashboard';
@@ -53,12 +54,32 @@ export default function DashboardPage() {
   // between dashboard sub-pages - only starting/stopping a trip actually starts/stops it.
   const activeTripId = useTripTrackingStore((s) => s.activeTripId);
   const setTrackedPosition = useTripTrackingStore((s) => s.setPosition);
+  const startTrackedTrip = useTripTrackingStore((s) => s.startTrip);
   const { position } = useLocation(role === 'driver' && !!activeTripId);
 
   useEffect(() => {
     fetchProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // tripTrackingStore is in-memory only, so a refresh/navigation away and back would otherwise
+  // silently drop tracking for a trip the backend still considers in_transit. Restore it from
+  // the source of truth once per session - guarded by a ref (not activeTripId) so a deliberate
+  // "Stop Sharing" click doesn't get immediately undone by this same effect re-firing.
+  const hasAttemptedRestoreRef = useRef(false);
+
+  useEffect(() => {
+    const driverId = profile?.driver?._id;
+    if (role !== 'driver' || !driverId || hasAttemptedRestoreRef.current) return;
+    hasAttemptedRestoreRef.current = true;
+
+    TripService.list({ driverId }).then((res) => {
+      const active = (res.data?.trips ?? []).find((t) => t.status === 'in_transit');
+      if (active) {
+        startTrackedTrip(active._id, active.tripNumber);
+      }
+    });
+  }, [role, profile?.driver?._id, startTrackedTrip]);
 
   useEffect(() => {
     if (!position) return;

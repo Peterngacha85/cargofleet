@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MapPin } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { connectSocket } from '@/services/socketService';
 import { Trip } from '@/types/trip';
 import { useProfileStore } from '@/stores/profileStore';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useTripTrackingStore } from '@/stores/tripTrackingStore';
+import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { formatCurrency, formatDate, statusLabel } from '@/utils/formatters';
 
@@ -21,7 +24,9 @@ export default function MyTrips() {
   const profile = useProfileStore((s) => s.profile);
   const setScheduledTripCount = useApprovalsStore((s) => s.setScheduledTripCount);
   const { activeTripId, startTrip, stopTrip } = useTripTrackingStore();
+  const requestFocus = useMapFocusStore((s) => s.requestFocus);
   const push = useNotificationStore((s) => s.push);
+  const navigate = useNavigate();
   const driverId = profile?.driver?._id;
 
   const load = () => {
@@ -38,6 +43,8 @@ export default function MyTrips() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId]);
 
+  const hasActiveTrip = trips.some((t) => t.status === 'in_transit');
+
   const handleStartTrip = (trip: Trip) => {
     if (!driverId) return;
     if (!navigator.geolocation) {
@@ -50,13 +57,22 @@ export default function MyTrips() {
     navigator.geolocation.getCurrentPosition(
       () => {
         const socket = connectSocket('driver', { driverId });
-        socket.emit('updateTripStatus', { tripId: trip._id, status: 'in_transit' });
-        startTrip(trip._id, trip.tripNumber);
+        socket.emit(
+          'updateTripStatus',
+          { tripId: trip._id, status: 'in_transit' },
+          (response: { success: boolean; message: string }) => {
+            setStarting(null);
+            if (!response.success) {
+              push(response.message, 'error');
+              return;
+            }
 
-        setTrips((prev) => prev.map((t) => (t._id === trip._id ? { ...t, status: 'in_transit' } : t)));
-        setScheduledTripCount(trips.filter((t) => t.status === 'scheduled' && t._id !== trip._id).length);
-        push(`Trip ${trip.tripNumber} started - sharing your location.`, 'success');
-        setStarting(null);
+            startTrip(trip._id, trip.tripNumber);
+            setTrips((prev) => prev.map((t) => (t._id === trip._id ? { ...t, status: 'in_transit' } : t)));
+            setScheduledTripCount(trips.filter((t) => t.status === 'scheduled' && t._id !== trip._id).length);
+            push(`Trip ${trip.tripNumber} started - sharing your location.`, 'success');
+          }
+        );
       },
       () => {
         push('Location access is required to start a trip. Please allow it and try again.', 'error');
@@ -69,6 +85,17 @@ export default function MyTrips() {
   const handleStopSharing = () => {
     stopTrip();
     push('Location sharing stopped. The trip stays in transit until it is completed.', 'info');
+  };
+
+  const handleResumeSharing = (trip: Trip) => {
+    startTrip(trip._id, trip.tripNumber);
+    push(`Resumed sharing for trip ${trip.tripNumber}.`, 'success');
+  };
+
+  const handleShowOnMap = () => {
+    if (!driverId) return;
+    requestFocus(driverId);
+    navigate('/dashboard');
   };
 
   if (trips.length === 0) {
@@ -110,23 +137,39 @@ export default function MyTrips() {
             </div>
 
             {trip.status === 'scheduled' && (
-              <button
-                className="btn-primary"
-                onClick={() => handleStartTrip(trip)}
-                disabled={starting === trip._id}
-              >
-                {starting === trip._id ? 'Requesting location…' : 'Start Trip'}
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  className="btn-primary"
+                  onClick={() => handleStartTrip(trip)}
+                  disabled={starting === trip._id || hasActiveTrip}
+                >
+                  {starting === trip._id ? 'Requesting location…' : 'Start Trip'}
+                </button>
+                {hasActiveTrip && (
+                  <span className="text-xs text-gray-400">Complete your active trip first</span>
+                )}
+              </div>
             )}
 
-            {trip.status === 'in_transit' && activeTripId === trip._id && (
-              <button className="btn-secondary" onClick={handleStopSharing}>
-                Stop Sharing
-              </button>
-            )}
-
-            {trip.status === 'in_transit' && activeTripId !== trip._id && (
-              <span className="text-xs text-gray-400">Sharing paused for this trip</span>
+            {trip.status === 'in_transit' && (
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn-secondary flex items-center gap-1"
+                  onClick={handleShowOnMap}
+                >
+                  <MapPin className="h-4 w-4" />
+                  Show on Map
+                </button>
+                {activeTripId === trip._id ? (
+                  <button className="btn-secondary" onClick={handleStopSharing}>
+                    Stop Sharing
+                  </button>
+                ) : (
+                  <button className="btn-primary" onClick={() => handleResumeSharing(trip)}>
+                    Resume Sharing
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </li>
