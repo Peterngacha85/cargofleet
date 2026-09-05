@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Truck } from 'lucide-react';
 import { VehicleService } from '@/services/vehicleService';
 import { DriverService } from '@/services/driverService';
 import { Vehicle, VehicleRegisteredBy } from '@/types/vehicle';
@@ -8,10 +9,15 @@ import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
 import VehicleForm from '@/components/shared/VehicleForm';
+import SearchInput from '@/components/shared/SearchInput';
+import Select from '@/components/shared/Select';
+import EmptyState from '@/components/shared/EmptyState';
 
 export default function VehicleVerificationList() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [search, setSearch] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
   const push = useNotificationStore((s) => s.push);
   const setPendingVehicleCount = useApprovalsStore((s) => s.setPendingVehicleCount);
   const { user } = useAuth();
@@ -56,6 +62,24 @@ export default function VehicleVerificationList() {
     if (response.success) load();
   };
 
+  const filteredVehicles = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return vehicles.filter((vehicle) => {
+      const branchId = typeof vehicle.branchId === 'string' ? vehicle.branchId : vehicle.branchId?._id;
+      const registrant = vehicle.registeredBy as VehicleRegisteredBy | undefined;
+
+      const matchesQuery =
+        !query ||
+        vehicle.registrationNumber.toLowerCase().includes(query) ||
+        vehicle.make.toLowerCase().includes(query) ||
+        vehicle.model.toLowerCase().includes(query) ||
+        `${registrant?.firstName ?? ''} ${registrant?.lastName ?? ''}`.toLowerCase().includes(query);
+      const matchesBranch = !branchFilter || branchId === branchFilter;
+
+      return matchesQuery && matchesBranch;
+    });
+  }, [vehicles, search, branchFilter]);
+
   return (
     <div className="flex flex-col gap-6">
       <VehicleForm branches={branches} onCreated={load} />
@@ -65,8 +89,27 @@ export default function VehicleVerificationList() {
         {vehicles.length === 0 ? (
           <p className="text-sm text-gray-500">No vehicles awaiting verification.</p>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {vehicles.map((vehicle) => {
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-3">
+              <SearchInput
+                className="min-w-[200px] flex-1"
+                value={search}
+                onChange={setSearch}
+                placeholder="Search by registration, make, model, or registrant…"
+              />
+              <Select
+                className="w-44"
+                value={branchFilter}
+                onChange={setBranchFilter}
+                options={[{ value: '', label: 'All Branches' }, ...branches.map((b) => ({ value: b._id, label: b.name }))]}
+              />
+            </div>
+
+            {filteredVehicles.length === 0 ? (
+              <EmptyState icon={Truck} title="No matching vehicles" description="Try a different search or filter." />
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {filteredVehicles.map((vehicle) => {
               const registrant = vehicle.registeredBy as VehicleRegisteredBy | undefined;
               const branch = vehicle.branchId as { _id: string; name: string };
               return (
@@ -93,9 +136,11 @@ export default function VehicleVerificationList() {
                     </button>
                   </div>
                 </li>
-              );
-            })}
-          </ul>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </div>

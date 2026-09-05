@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'react';
-import { MapPin, Radio } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MapPin, Radio, Route } from 'lucide-react';
 import { TripService } from '@/services/tripService';
+import { DriverService } from '@/services/driverService';
 import { requestLocationSharing } from '@/services/socketService';
 import { Trip } from '@/types/trip';
+import { Branch } from '@/types/driver';
 import { useAuth } from '@/hooks/useAuth';
 import { useMap } from '@/hooks/useMap';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { statusLabel } from '@/utils/formatters';
+import SearchInput from '@/components/shared/SearchInput';
+import Select from '@/components/shared/Select';
+import EmptyState from '@/components/shared/EmptyState';
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-gray-200 text-gray-700',
@@ -16,16 +22,32 @@ const statusStyles: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
+const statusOptions = [
+  { value: '', label: 'All Statuses' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'in_transit', label: 'In Transit' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
 export default function AllTripsList() {
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [requestingShareFor, setRequestingShareFor] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const requestFocus = useMapFocusStore((s) => s.requestFocus);
   const { user } = useAuth();
   const { driverLocations } = useMap();
   const push = useNotificationStore((s) => s.push);
+  const navigate = useNavigate();
 
   useEffect(() => {
     TripService.list({}).then((res) => setTrips(res.data?.trips ?? []));
+    DriverService.getBranches().then((res) => setBranches(res.data?.branches ?? []));
   }, []);
 
   const idOf = (value?: string | { _id: string }) => (typeof value === 'string' ? value : value?._id);
@@ -44,10 +66,32 @@ export default function AllTripsList() {
   const handleShowOnMap = (trip: Trip) => {
     const driverId = idOf(trip.driverId);
     if (!driverId) return;
-    // Live Map is a sibling tab within AdminPanel, which switches to it itself on seeing
-    // a new focus request - no navigation needed since both tabs share the same route.
     requestFocus(driverId);
+    navigate('/dashboard/map');
   };
+
+  const filteredTrips = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const from = dateFrom ? new Date(dateFrom) : null;
+    // Include the whole "to" day, not just its midnight.
+    const to = dateTo ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)) : null;
+
+    return trips.filter((trip) => {
+      const matchesQuery =
+        !query ||
+        trip.tripNumber.toLowerCase().includes(query) ||
+        tripDriverName(trip).toLowerCase().includes(query) ||
+        trip.pickupLocation.address.toLowerCase().includes(query) ||
+        trip.dropoffLocation.address.toLowerCase().includes(query);
+      const matchesStatus = !statusFilter || trip.status === statusFilter;
+      const matchesBranch =
+        !branchFilter || idOf(trip.branchId) === branchFilter || idOf(trip.destinationBranchId) === branchFilter;
+      const createdAt = new Date(trip.createdAt);
+      const matchesDate = (!from || createdAt >= from) && (!to || createdAt <= to);
+
+      return matchesQuery && matchesStatus && matchesBranch && matchesDate;
+    });
+  }, [trips, search, statusFilter, branchFilter, dateFrom, dateTo]);
 
   const handleRequestSharing = async (trip: Trip) => {
     const driverId = idOf(trip.driverId);
@@ -69,12 +113,46 @@ export default function AllTripsList() {
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {trips.map((trip) => {
-        const driverId = idOf(trip.driverId);
-        const isSharing = !!driverId && !!driverLocations[driverId];
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-3">
+        <SearchInput
+          className="min-w-[200px] flex-1"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by trip number, driver, or address…"
+        />
+        <Select className="w-40" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
+        <Select
+          className="w-44"
+          value={branchFilter}
+          onChange={setBranchFilter}
+          options={[{ value: '', label: 'All Branches' }, ...branches.map((b) => ({ value: b._id, label: b.name }))]}
+        />
+        <input
+          type="date"
+          className="input-field w-40"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          aria-label="From date"
+        />
+        <input
+          type="date"
+          className="input-field w-40"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          aria-label="To date"
+        />
+      </div>
 
-        return (
+      {filteredTrips.length === 0 ? (
+        <EmptyState icon={Route} title="No matching trips" description="Try a different search or filter." />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filteredTrips.map((trip) => {
+            const driverId = idOf(trip.driverId);
+            const isSharing = !!driverId && !!driverLocations[driverId];
+
+            return (
           <li key={trip._id} className="card flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-medium text-charcoal">{trip.tripNumber}</p>
@@ -113,8 +191,10 @@ export default function AllTripsList() {
               )}
             </div>
           </li>
-        );
-      })}
-    </ul>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio } from 'lucide-react';
+import { MapPin, Radio, Route } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
@@ -19,6 +19,8 @@ import { DEFAULT_MAP_CENTER } from '@/utils/constants';
 import { geocodeAddress } from '@/utils/geocode';
 import FieldLabel from '@/components/shared/FieldLabel';
 import Select from '@/components/shared/Select';
+import SearchInput from '@/components/shared/SearchInput';
+import EmptyState from '@/components/shared/EmptyState';
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-gray-200 text-gray-700',
@@ -26,6 +28,14 @@ const statusStyles: Record<string, string> = {
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 };
+
+const statusOptions = [
+  { value: '', label: 'All Statuses' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'in_transit', label: 'In Transit' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
 
 const emptyForm = {
   driverId: '',
@@ -56,6 +66,10 @@ export default function TripManagement() {
     dropoff: false,
   });
   const [requestingShareFor, setRequestingShareFor] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const profile = useProfileStore((s) => s.profile);
   const push = useNotificationStore((s) => s.push);
   const requestFocus = useMapFocusStore((s) => s.requestFocus);
@@ -108,6 +122,26 @@ export default function TripManagement() {
 
   const isDestinationManager = (trip: Trip) => idOf(trip.destinationBranchId) === branchId;
   const isCrossBranch = (trip: Trip) => idOf(trip.branchId) !== idOf(trip.destinationBranchId);
+
+  const filteredTrips = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)) : null;
+
+    return trips.filter((trip) => {
+      const matchesQuery =
+        !query ||
+        trip.tripNumber.toLowerCase().includes(query) ||
+        tripDriverName(trip).toLowerCase().includes(query) ||
+        trip.pickupLocation.address.toLowerCase().includes(query) ||
+        trip.dropoffLocation.address.toLowerCase().includes(query);
+      const matchesStatus = !statusFilter || trip.status === statusFilter;
+      const createdAt = new Date(trip.createdAt);
+      const matchesDate = (!from || createdAt >= from) && (!to || createdAt <= to);
+
+      return matchesQuery && matchesStatus && matchesDate;
+    });
+  }, [trips, search, statusFilter, dateFrom, dateTo]);
 
   const handleShowOnMap = (trip: Trip) => {
     const driverId = idOf(trip.driverId);
@@ -438,11 +472,39 @@ export default function TripManagement() {
         {trips.length === 0 ? (
           <p className="text-sm text-gray-500">No trips created yet.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {trips.map((trip) => {
-              const crossBranch = isCrossBranch(trip);
-              const inbound = crossBranch && isDestinationManager(trip);
-              const canMarkReceived = inbound && trip.status !== 'completed' && trip.status !== 'cancelled';
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-3">
+              <SearchInput
+                className="min-w-[200px] flex-1"
+                value={search}
+                onChange={setSearch}
+                placeholder="Search by trip number, driver, or address…"
+              />
+              <Select className="w-40" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
+              <input
+                type="date"
+                className="input-field w-40"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="From date"
+              />
+              <input
+                type="date"
+                className="input-field w-40"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="To date"
+              />
+            </div>
+
+            {filteredTrips.length === 0 ? (
+              <EmptyState icon={Route} title="No matching trips" description="Try a different search or filter." />
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {filteredTrips.map((trip) => {
+                  const crossBranch = isCrossBranch(trip);
+                  const inbound = crossBranch && isDestinationManager(trip);
+                  const canMarkReceived = inbound && trip.status !== 'completed' && trip.status !== 'cancelled';
               const driverId = idOf(trip.driverId);
               const isSharing = !!driverId && !!driverLocations[driverId];
 
@@ -501,9 +563,11 @@ export default function TripManagement() {
                     )}
                   </div>
                 </li>
-              );
-            })}
-          </ul>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </div>
