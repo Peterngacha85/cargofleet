@@ -1,19 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route, Trash2, History, ArrowLeft, RotateCcw } from 'lucide-react';
+import { MapPin, Radio, Route, Trash2, History, ArrowLeft, RotateCcw, AlertTriangle, UserCog } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
+import { VehicleService } from '@/services/vehicleService';
 import { requestLocationSharing } from '@/services/socketService';
 import { Trip } from '@/types/trip';
-import { Branch } from '@/types/driver';
+import { Branch, Driver, DriverUserSummary } from '@/types/driver';
+import { Vehicle } from '@/types/vehicle';
 import { useAuth } from '@/hooks/useAuth';
 import { useMap } from '@/hooks/useMap';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { statusLabel, formatDate } from '@/utils/formatters';
+import { statusLabel, formatDate, timeAgo } from '@/utils/formatters';
+import FieldLabel from '@/components/shared/FieldLabel';
 import SearchInput from '@/components/shared/SearchInput';
 import Select from '@/components/shared/Select';
 import EmptyState from '@/components/shared/EmptyState';
+
+// A trip still sitting as "scheduled" this long probably means the driver isn't going to
+// start it - flagged so an admin notices it's time to reassign rather than wait indefinitely.
+const STALE_SCHEDULED_MINUTES = 60;
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-gray-200 text-gray-700',
@@ -33,9 +40,16 @@ const statusOptions = [
 export default function AllTripsList() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [requestingShareFor, setRequestingShareFor] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [reassigningTripId, setReassigningTripId] = useState<string | null>(null);
+  const [reassignDriverId, setReassignDriverId] = useState('');
+  const [reassignVehicleId, setReassignVehicleId] = useState('');
+  const [reassignReason, setReassignReason] = useState('');
+  const [reassignSubmitting, setReassignSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
@@ -58,9 +72,22 @@ export default function AllTripsList() {
 
   useEffect(() => {
     DriverService.getBranches().then((res) => setBranches(res.data?.branches ?? []));
+    DriverService.list({ status: 'active' }).then((res) => setDrivers(res.data?.drivers ?? []));
+    VehicleService.list({ status: 'active' }).then((res) => setVehicles(res.data?.vehicles ?? []));
   }, []);
 
   const idOf = (value?: string | { _id: string }) => (typeof value === 'string' ? value : value?._id);
+
+  const driverName = (id: string) => {
+    const driver = drivers.find((d) => d._id === id);
+    const u = driver?.userId as DriverUserSummary | undefined;
+    return u ? `${u.firstName} ${u.lastName}` : id;
+  };
+
+  const vehicleLabel = (id: string) => {
+    const vehicle = vehicles.find((v) => v._id === id);
+    return vehicle ? `${vehicle.registrationNumber} (${vehicle.make} ${vehicle.model})` : id;
+  };
 
   const tripDriverName = (trip: Trip) =>
     typeof trip.driverId === 'string' ? trip.driverId : `${trip.driverId.userId.firstName} ${trip.driverId.userId.lastName}`;
@@ -132,6 +159,38 @@ export default function AllTripsList() {
     }
   };
 
+  const openReassign = (trip: Trip) => {
+    setReassigningTripId(trip._id);
+    setReassignDriverId('');
+    setReassignVehicleId('');
+    setReassignReason('');
+  };
+
+  const handleReassign = async (trip: Trip) => {
+    if (!reassignDriverId || !reassignVehicleId) {
+      push('Select a driver and vehicle to reassign to.', 'warning');
+      return;
+    }
+
+    setReassignSubmitting(true);
+    try {
+      const response = await TripService.reassign(trip._id, {
+        driverId: reassignDriverId,
+        vehicleId: reassignVehicleId,
+        reason: reassignReason.trim() || undefined,
+      });
+      push(response.success ? 'Trip reassigned.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) {
+        setReassigningTripId(null);
+        load();
+      }
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to reassign trip', 'error');
+    } finally {
+      setReassignSubmitting(false);
+    }
+  };
+
   const handleRestore = async (trip: Trip) => {
     setActingOn(trip._id);
     try {
@@ -200,11 +259,24 @@ export default function AllTripsList() {
           {filteredTrips.map((trip) => {
             const driverId = idOf(trip.driverId);
             const isSharing = !!driverId && !!driverLocations[driverId];
+            const scheduledMinutes =
+              trip.status === 'scheduled' ? Math.floor((Date.now() - new Date(trip.createdAt).getTime()) / 60000) : 0;
+            const isStale = trip.status === 'scheduled' && scheduledMinutes >= STALE_SCHEDULED_MINUTES;
+            const isReassigning = reassigningTripId === trip._id;
 
             return (
-              <li key={trip._id} className="card flex flex-wrap items-center justify-between gap-2">
+              <li key={trip._id} className="flex flex-col gap-2">
+              <div className="card flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-medium text-charcoal">{trip.tripNumber}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-charcoal">{trip.tripNumber}</p>
+                    {isStale && (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        <AlertTriangle className="h-3 w-3" />
+                        Scheduled {timeAgo(trip.createdAt)} - not started
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500">
                     {trip.pickupLocation.address} → {trip.dropoffLocation.address}
                   </p>
@@ -212,6 +284,9 @@ export default function AllTripsList() {
                     {tripDriverName(trip)} · {tripVehicleLabel(trip)} · {tripBranchName(trip.branchId)} →{' '}
                     {tripBranchName(trip.destinationBranchId)}
                   </p>
+                  {trip.reassignmentReason && (
+                    <p className="text-xs text-gray-400">Reassigned - {trip.reassignmentReason}</p>
+                  )}
                   {showHistory && trip.deletedAt && (
                     <p className="text-xs text-gray-400">
                       Deleted {formatDate(trip.deletedAt)}{trip.deletedByName ? ` by ${trip.deletedByName}` : ''}
@@ -222,6 +297,15 @@ export default function AllTripsList() {
                   <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[trip.status]}`}>
                     {statusLabel(trip.status)}
                   </span>
+                  {!showHistory && trip.status === 'scheduled' && (
+                    <button
+                      className="btn-secondary flex items-center gap-1"
+                      onClick={() => (isReassigning ? setReassigningTripId(null) : openReassign(trip))}
+                    >
+                      <UserCog className="h-4 w-4" />
+                      Reassign Driver
+                    </button>
+                  )}
                   {!showHistory && trip.status === 'in_transit' && isSharing && (
                     <button className="btn-secondary flex items-center gap-1" onClick={() => handleShowOnMap(trip)}>
                       <MapPin className="h-4 w-4" />
@@ -264,6 +348,49 @@ export default function AllTripsList() {
                       </button>
                     ))}
                 </div>
+              </div>
+
+              {isReassigning && (
+                <div className="card flex flex-wrap items-end gap-3 bg-soft-gray">
+                  <div className="min-w-[160px]">
+                    <FieldLabel required>New Driver</FieldLabel>
+                    <Select
+                      value={reassignDriverId}
+                      onChange={setReassignDriverId}
+                      placeholder="Select driver"
+                      options={drivers.map((d) => ({ value: d._id, label: driverName(d._id) }))}
+                    />
+                  </div>
+                  <div className="min-w-[160px]">
+                    <FieldLabel required>New Vehicle</FieldLabel>
+                    <Select
+                      value={reassignVehicleId}
+                      onChange={setReassignVehicleId}
+                      placeholder="Select vehicle"
+                      options={vehicles.map((v) => ({ value: v._id, label: vehicleLabel(v._id) }))}
+                    />
+                  </div>
+                  <div className="min-w-[200px] flex-1">
+                    <FieldLabel>Reason (optional)</FieldLabel>
+                    <input
+                      className="input-field"
+                      placeholder="e.g. Driver unreachable"
+                      value={reassignReason}
+                      onChange={(e) => setReassignReason(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleReassign(trip)}
+                    disabled={reassignSubmitting}
+                  >
+                    {reassignSubmitting ? 'Reassigning…' : 'Confirm'}
+                  </button>
+                  <button className="btn-secondary" onClick={() => setReassigningTripId(null)}>
+                    Cancel
+                  </button>
+                </div>
+              )}
               </li>
             );
           })}
