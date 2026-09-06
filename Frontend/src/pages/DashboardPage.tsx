@@ -17,6 +17,12 @@ import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
 import { api } from '@/services/api';
 import { DriverLocationUpdate } from '@/types/map';
+import {
+  enqueueOfflineLocationPoint,
+  getQueuedLocationPoints,
+  clearQueuedLocationPoints,
+  QueuedLocationPoint,
+} from '@/utils/offlineLocationQueue';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import MyTrips from '@/components/driver/MyTrips';
 import DriverMapPage from '@/components/driver/DriverMapPage';
@@ -133,14 +139,34 @@ export default function DashboardPage() {
     const socket = registrationSocketRef.current;
     if (!socket) return;
 
-    socket.emit('sendLocation', {
+    const point: QueuedLocationPoint = {
       latitude: position.latitude,
       longitude: position.longitude,
       accuracy: position.accuracy,
       speed: position.speed ?? 0,
       heading: position.heading ?? 0,
       tripId: activeTripId,
-    });
+      timestamp: new Date().toISOString(),
+    };
+
+    // GPS itself doesn't need a connection, but reaching the server does - buffer locally
+    // instead of dropping the point so the trip's recorded route has no gap once back online.
+    // Re-checked on every GPS tick (~2s) rather than a one-off "on reconnect" listener, so a
+    // backlog gets flushed the moment connectivity returns without depending on the socket
+    // ref already being populated by the time this effect first attaches.
+    if (!socket.connected) {
+      enqueueOfflineLocationPoint(point);
+      return;
+    }
+
+    const queued = getQueuedLocationPoints();
+    if (queued.length > 0) {
+      socket.emit('sendLocationBatch', { points: [...queued, point] }, (response?: { success: boolean }) => {
+        if (response?.success) clearQueuedLocationPoints();
+      });
+    } else {
+      socket.emit('sendLocation', point);
+    }
   }, [position, activeTripId, registrationSocketRef]);
 
   // Tells managers/admins to drop this driver's marker the instant sharing stops, rather than

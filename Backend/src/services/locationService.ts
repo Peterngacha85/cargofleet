@@ -11,9 +11,27 @@ export const recordDriverLocation = async (driverId: string, payload: DriverLoca
     accuracy: payload.accuracy,
     speed: payload.speed,
     heading: payload.heading ?? 0,
-    timestamp: new Date(),
+    timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
     sourceType: 'gps',
   });
+};
+
+// Used to flush points a driver's device buffered locally while offline, so each keeps the
+// timestamp it was actually captured at instead of bunching up at the reconnect time.
+export const recordDriverLocationBatch = async (driverId: string, payloads: DriverLocationPayload[]) => {
+  return LocationHistory.insertMany(
+    payloads.map((payload) => ({
+      driverId: new Types.ObjectId(driverId),
+      tripId: payload.tripId ? new Types.ObjectId(payload.tripId) : undefined,
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+      accuracy: payload.accuracy,
+      speed: payload.speed,
+      heading: payload.heading ?? 0,
+      timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
+      sourceType: 'gps',
+    }))
+  );
 };
 
 export const getLatestLocationForDriver = async (driverId: string) => {

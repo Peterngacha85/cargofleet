@@ -2,7 +2,7 @@ import { Namespace, Socket } from 'socket.io';
 import Trip from '../models/Trip';
 import Driver from '../models/Driver';
 import Manager from '../models/Manager';
-import { recordDriverLocation } from '../services/locationService';
+import { recordDriverLocation, recordDriverLocationBatch } from '../services/locationService';
 import { DriverLocationPayload, TripStatusUpdatePayload } from '../types/websocket';
 import { emitToManagers, emitToDrivers, emitToAdmins, emitToDriver } from './emitters';
 import { logger } from '../utils/logger';
@@ -84,6 +84,58 @@ export const registerDriverNamespaceHandlers = (namespace: Namespace) => {
         logger.error('sendLocation handler error', { error });
       }
     });
+
+    // A driver's device buffers points locally while it has no connection (see the frontend's
+    // offline location queue) and flushes them here in one go once it reconnects, so a
+    // signal-dead stretch of a trip still shows up in the recorded route instead of leaving a
+    // gap. Acked so the client only clears its local queue once these are actually persisted.
+    socket.on(
+      'sendLocationBatch',
+      async (data: { points: DriverLocationPayload[] }, ack?: (response: { success: boolean }) => void) => {
+        if (!driverId || !data.points?.length) {
+          ack?.({ success: false });
+          return;
+        }
+
+        try {
+          await recordDriverLocationBatch(driverId, data.points);
+
+          const latest = data.points.reduce((a, b) =>
+            new Date(a.timestamp ?? 0) > new Date(b.timestamp ?? 0) ? a : b
+          );
+          let tripInfo: { tripNumber?: string; dropoffAddress?: string; tripStatus?: string } = {};
+          if (latest.tripId) {
+            const trip = await Trip.findById(latest.tripId).select('tripNumber dropoffLocation.address status');
+            if (trip) {
+              tripInfo = {
+                tripNumber: trip.tripNumber,
+                dropoffAddress: trip.dropoffLocation?.address,
+                tripStatus: trip.status,
+              };
+            }
+          }
+
+          const locationUpdate = {
+            driverId,
+            tripId: latest.tripId,
+            latitude: latest.latitude,
+            longitude: latest.longitude,
+            speed: latest.speed,
+            heading: latest.heading,
+            timestamp: latest.timestamp ? new Date(latest.timestamp) : new Date(),
+            ...tripInfo,
+          };
+
+          emitToManagers('driverLocationUpdate', locationUpdate);
+          emitToAdmins('driverLocationUpdate', locationUpdate);
+
+          ack?.({ success: true });
+        } catch (error) {
+          logger.error('sendLocationBatch handler error', { error });
+          ack?.({ success: false });
+        }
+      }
+    );
 
     // Lets other clients drop this driver's marker immediately instead of it sitting frozen
     // at its last known position until whoever's watching happens to refresh.

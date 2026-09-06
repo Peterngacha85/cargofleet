@@ -5,6 +5,10 @@ export interface DriverLocationPayload {
   speed: number;
   heading?: number;
   tripId?: string;
+  // When the point was captured on the device, not when the server received it - what makes
+  // offline-buffered points (sent later, in a batch, once connectivity returns) land at their
+  // correct place in the route instead of all bunching up at the reconnect time.
+  timestamp?: string;
 }
 
 export interface TripStatusUpdatePayload {
