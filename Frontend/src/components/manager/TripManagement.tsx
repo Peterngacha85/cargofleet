@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMap } from '@/hooks/useMap';
 import { useProfileStore } from '@/stores/profileStore';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
+import { useMapPathStore } from '@/stores/mapPathStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { statusLabel, timeAgo } from '@/utils/formatters';
 import { DEFAULT_MAP_CENTER } from '@/utils/constants';
@@ -84,6 +85,7 @@ export default function TripManagement() {
   const profile = useProfileStore((s) => s.profile);
   const push = useNotificationStore((s) => s.push);
   const requestFocus = useMapFocusStore((s) => s.requestFocus);
+  const requestPath = useMapPathStore((s) => s.requestPath);
   const { user } = useAuth();
   const { driverLocations } = useMap();
   const navigate = useNavigate();
@@ -158,6 +160,13 @@ export default function TripManagement() {
     const driverId = idOf(trip.driverId);
     if (!driverId) return;
     requestFocus(driverId);
+    navigate('/dashboard/map');
+  };
+
+  // Available for any trip that's actually run, not just a live one - the recorded route
+  // lives in location history independently of whether the driver is currently sharing.
+  const handleShowPath = (trip: Trip) => {
+    requestPath(trip._id);
     navigate('/dashboard/map');
   };
 
@@ -676,6 +685,12 @@ export default function TripManagement() {
                         <Camera className="h-4 w-4" />
                         View Photo
                       </a>
+                    )}
+                    {(trip.status === 'in_transit' || trip.status === 'completed') && (
+                      <button className="btn-secondary flex items-center gap-1" onClick={() => handleShowPath(trip)}>
+                        <Route className="h-4 w-4" />
+                        Show Path
+                      </button>
                     )}
                   </div>
                 </div>

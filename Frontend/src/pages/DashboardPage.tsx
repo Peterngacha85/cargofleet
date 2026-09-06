@@ -23,6 +23,8 @@ import {
   clearQueuedLocationPoints,
   QueuedLocationPoint,
 } from '@/utils/offlineLocationQueue';
+import { haversineDistanceMeters } from '@/utils/geo';
+import { MIN_LOCATION_MOVEMENT_METERS, MIN_LOCATION_HEARTBEAT_MS } from '@/utils/constants';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import MyTrips from '@/components/driver/MyTrips';
 import DriverMapPage from '@/components/driver/DriverMapPage';
@@ -135,10 +137,24 @@ export default function DashboardPage() {
     setTrackedPosition(position);
   }, [position, setTrackedPosition]);
 
+  const lastRecordedPointRef = useRef<{ latitude: number; longitude: number; time: number } | null>(null);
+
   useEffect(() => {
     if (!position || !activeTripId) return;
     const socket = registrationSocketRef.current;
     if (!socket) return;
+
+    const last = lastRecordedPointRef.current;
+    if (last) {
+      const movedMeters = haversineDistanceMeters(last.latitude, last.longitude, position.latitude, position.longitude);
+      const elapsedMs = Date.now() - last.time;
+      // Skip this GPS tick as noise unless the driver has actually moved, or it's been long
+      // enough that a "still here" point is worth recording even while stopped.
+      if (movedMeters < MIN_LOCATION_MOVEMENT_METERS && elapsedMs < MIN_LOCATION_HEARTBEAT_MS) {
+        return;
+      }
+    }
+    lastRecordedPointRef.current = { latitude: position.latitude, longitude: position.longitude, time: Date.now() };
 
     const point: QueuedLocationPoint = {
       latitude: position.latitude,
