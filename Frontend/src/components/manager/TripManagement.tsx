@@ -502,7 +502,7 @@ export default function TripManagement() {
           <p className="text-sm text-gray-500">No trips created yet.</p>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-3">
+            <div className="sticky top-0 z-10 flex flex-wrap gap-3 bg-soft-gray pb-3">
               <SearchInput
                 className="min-w-[200px] flex-1"
                 value={search}

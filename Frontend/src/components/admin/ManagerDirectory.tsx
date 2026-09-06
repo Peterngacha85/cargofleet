@@ -77,7 +77,7 @@ export default function ManagerDirectory() {
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap gap-3">
+      <div className="sticky top-0 z-10 mb-4 flex flex-wrap gap-3 bg-soft-gray pb-3">
         <SearchInput
           className="min-w-[200px] flex-1"
           value={search}
