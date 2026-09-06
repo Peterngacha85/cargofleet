@@ -55,6 +55,19 @@ const findNearestBranchId = async (latitude: number, longitude: number) => {
   return nearest._id;
 };
 
+// A driver/vehicle already on a scheduled or in-transit trip can't be handed a second one at
+// the same time - shared by createTrip and reassignTripHandler, the two places that assign
+// a driver/vehicle to a trip.
+const findConflictingTrip = async (field: 'driverId' | 'vehicleId', id: string, excludeTripId?: string) => {
+  const filter: Record<string, unknown> = {
+    [field]: id,
+    status: { $in: ['scheduled', 'in_transit'] },
+    isDeleted: { $ne: true },
+  };
+  if (excludeTripId) filter._id = { $ne: excludeTripId };
+  return Trip.findOne(filter);
+};
+
 export const createTrip = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { driverId, vehicleId, branchId, pickupLocation, dropoffLocation, estimatedEndTime, fare } = req.body;
@@ -71,6 +84,16 @@ export const createTrip = async (req: AuthenticatedRequest, res: Response) => {
     const vehicle = await Vehicle.findById(vehicleId);
     if (!vehicle || vehicle.status !== 'active') {
       return sendError(res, 400, 'Vehicle must be active to be assigned a trip');
+    }
+
+    const conflictingDriverTrip = await findConflictingTrip('driverId', driverId);
+    if (conflictingDriverTrip) {
+      return sendError(res, 400, `Driver is already assigned to trip ${conflictingDriverTrip.tripNumber}`);
+    }
+
+    const conflictingVehicleTrip = await findConflictingTrip('vehicleId', vehicleId);
+    if (conflictingVehicleTrip) {
+      return sendError(res, 400, `Vehicle is already assigned to trip ${conflictingVehicleTrip.tripNumber}`);
     }
 
     const tripNumber = await generateTripNumber();
@@ -148,6 +171,16 @@ export const reassignTripHandler = async (req: AuthenticatedRequest, res: Respon
     const vehicle = await Vehicle.findById(vehicleId);
     if (!vehicle || vehicle.status !== 'active') {
       return sendError(res, 400, 'Vehicle must be active to be assigned a trip');
+    }
+
+    const conflictingDriverTrip = await findConflictingTrip('driverId', driverId, trip._id.toString());
+    if (conflictingDriverTrip) {
+      return sendError(res, 400, `Driver is already assigned to trip ${conflictingDriverTrip.tripNumber}`);
+    }
+
+    const conflictingVehicleTrip = await findConflictingTrip('vehicleId', vehicleId, trip._id.toString());
+    if (conflictingVehicleTrip) {
+      return sendError(res, 400, `Vehicle is already assigned to trip ${conflictingVehicleTrip.tripNumber}`);
     }
 
     const previousDriverId = trip.driverId.toString();
