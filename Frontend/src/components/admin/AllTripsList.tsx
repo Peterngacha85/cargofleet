@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route } from 'lucide-react';
+import { MapPin, Radio, Route, Trash2, History, ArrowLeft, RotateCcw } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
 import { requestLocationSharing } from '@/services/socketService';
@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMap } from '@/hooks/useMap';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { statusLabel } from '@/utils/formatters';
+import { statusLabel, formatDate } from '@/utils/formatters';
 import SearchInput from '@/components/shared/SearchInput';
 import Select from '@/components/shared/Select';
 import EmptyState from '@/components/shared/EmptyState';
@@ -33,7 +33,9 @@ const statusOptions = [
 export default function AllTripsList() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [requestingShareFor, setRequestingShareFor] = useState<string | null>(null);
+  const [actingOn, setActingOn] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
@@ -45,8 +47,16 @@ export default function AllTripsList() {
   const push = useNotificationStore((s) => s.push);
   const navigate = useNavigate();
 
+  const load = () => {
+    TripService.list({ deleted: showHistory }).then((res) => setTrips(res.data?.trips ?? []));
+  };
+
   useEffect(() => {
-    TripService.list({}).then((res) => setTrips(res.data?.trips ?? []));
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHistory]);
+
+  useEffect(() => {
     DriverService.getBranches().then((res) => setBranches(res.data?.branches ?? []));
   }, []);
 
@@ -108,43 +118,82 @@ export default function AllTripsList() {
     }
   };
 
-  if (trips.length === 0) {
-    return <p className="text-sm text-gray-500">No trips created yet.</p>;
-  }
+  const handleDelete = async (trip: Trip) => {
+    if (!window.confirm(`Delete trip ${trip.tripNumber}? It will be kept in Trip History and can be restored.`)) {
+      return;
+    }
+    setActingOn(trip._id);
+    try {
+      const response = await TripService.remove(trip._id);
+      push(response.success ? `Trip ${trip.tripNumber} deleted.` : response.message, response.success ? 'success' : 'error');
+      if (response.success) load();
+    } finally {
+      setActingOn(null);
+    }
+  };
+
+  const handleRestore = async (trip: Trip) => {
+    setActingOn(trip._id);
+    try {
+      const response = await TripService.restore(trip._id);
+      push(response.success ? `Trip ${trip.tripNumber} restored.` : response.message, response.success ? 'success' : 'error');
+      if (response.success) load();
+    } finally {
+      setActingOn(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-3">
-        <SearchInput
-          className="min-w-[200px] flex-1"
-          value={search}
-          onChange={setSearch}
-          placeholder="Search by trip number, driver, or address…"
-        />
-        <Select className="w-40" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
-        <Select
-          className="w-44"
-          value={branchFilter}
-          onChange={setBranchFilter}
-          options={[{ value: '', label: 'All Branches' }, ...branches.map((b) => ({ value: b._id, label: b.name }))]}
-        />
-        <input
-          type="date"
-          className="input-field w-40"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          aria-label="From date"
-        />
-        <input
-          type="date"
-          className="input-field w-40"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          aria-label="To date"
-        />
+      <div className="sticky top-0 z-10 bg-soft-gray pb-3">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold text-charcoal">{showHistory ? 'Trip History' : 'Trips'}</h2>
+          {user?.role === 'admin' && (
+            <button
+              className="btn-secondary flex items-center gap-1 text-xs"
+              onClick={() => setShowHistory((v) => !v)}
+            >
+              {showHistory ? <ArrowLeft className="h-3.5 w-3.5" /> : <History className="h-3.5 w-3.5" />}
+              {showHistory ? 'Back to Trips' : 'View Trip History'}
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <SearchInput
+            className="min-w-[200px] flex-1"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by trip number, driver, or address…"
+          />
+          <Select className="w-40" value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
+          <Select
+            className="w-44"
+            value={branchFilter}
+            onChange={setBranchFilter}
+            options={[{ value: '', label: 'All Branches' }, ...branches.map((b) => ({ value: b._id, label: b.name }))]}
+          />
+          <input
+            type="date"
+            className="input-field w-40"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label="From date"
+          />
+          <input
+            type="date"
+            className="input-field w-40"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label="To date"
+          />
+        </div>
       </div>
 
-      {filteredTrips.length === 0 ? (
+      {trips.length === 0 ? (
+        <p className="text-sm text-gray-500">
+          {showHistory ? 'No deleted trips.' : 'No trips created yet.'}
+        </p>
+      ) : filteredTrips.length === 0 ? (
         <EmptyState icon={Route} title="No matching trips" description="Try a different search or filter." />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -153,44 +202,69 @@ export default function AllTripsList() {
             const isSharing = !!driverId && !!driverLocations[driverId];
 
             return (
-          <li key={trip._id} className="card flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="font-medium text-charcoal">{trip.tripNumber}</p>
-              <p className="text-sm text-gray-500">
-                {trip.pickupLocation.address} → {trip.dropoffLocation.address}
-              </p>
-              <p className="text-xs text-gray-400">
-                {tripDriverName(trip)} · {tripVehicleLabel(trip)} · {tripBranchName(trip.branchId)} →{' '}
-                {tripBranchName(trip.destinationBranchId)}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[trip.status]}`}>
-                {statusLabel(trip.status)}
-              </span>
-              {trip.status === 'in_transit' && isSharing && (
-                <button className="btn-secondary flex items-center gap-1" onClick={() => handleShowOnMap(trip)}>
-                  <MapPin className="h-4 w-4" />
-                  Show on Map
-                </button>
-              )}
-              {trip.status === 'in_transit' && !isSharing && (
-                <>
-                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                    <Radio className="h-3.5 w-3.5" />
-                    Not sharing location
+              <li key={trip._id} className="card flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium text-charcoal">{trip.tripNumber}</p>
+                  <p className="text-sm text-gray-500">
+                    {trip.pickupLocation.address} → {trip.dropoffLocation.address}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {tripDriverName(trip)} · {tripVehicleLabel(trip)} · {tripBranchName(trip.branchId)} →{' '}
+                    {tripBranchName(trip.destinationBranchId)}
+                  </p>
+                  {showHistory && trip.deletedAt && (
+                    <p className="text-xs text-gray-400">
+                      Deleted {formatDate(trip.deletedAt)}{trip.deletedByName ? ` by ${trip.deletedByName}` : ''}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[trip.status]}`}>
+                    {statusLabel(trip.status)}
                   </span>
-                  <button
-                    className="btn-secondary flex items-center gap-1"
-                    onClick={() => handleRequestSharing(trip)}
-                    disabled={requestingShareFor === trip._id}
-                  >
-                    {requestingShareFor === trip._id ? 'Requesting…' : 'Request Sharing'}
-                  </button>
-                </>
-              )}
-            </div>
-          </li>
+                  {!showHistory && trip.status === 'in_transit' && isSharing && (
+                    <button className="btn-secondary flex items-center gap-1" onClick={() => handleShowOnMap(trip)}>
+                      <MapPin className="h-4 w-4" />
+                      Show on Map
+                    </button>
+                  )}
+                  {!showHistory && trip.status === 'in_transit' && !isSharing && (
+                    <>
+                      <span className="flex items-center gap-1 text-xs text-gray-400">
+                        <Radio className="h-3.5 w-3.5" />
+                        Not sharing location
+                      </span>
+                      <button
+                        className="btn-secondary flex items-center gap-1"
+                        onClick={() => handleRequestSharing(trip)}
+                        disabled={requestingShareFor === trip._id}
+                      >
+                        {requestingShareFor === trip._id ? 'Requesting…' : 'Request Sharing'}
+                      </button>
+                    </>
+                  )}
+                  {user?.role === 'admin' &&
+                    (showHistory ? (
+                      <button
+                        className="btn-secondary flex items-center gap-1"
+                        onClick={() => handleRestore(trip)}
+                        disabled={actingOn === trip._id}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        {actingOn === trip._id ? 'Restoring…' : 'Restore'}
+                      </button>
+                    ) : (
+                      <button
+                        className="flex items-center gap-1 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100"
+                        onClick={() => handleDelete(trip)}
+                        disabled={actingOn === trip._id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {actingOn === trip._id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    ))}
+                </div>
+              </li>
             );
           })}
         </ul>

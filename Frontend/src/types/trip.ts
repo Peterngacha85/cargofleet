@@ -42,6 +42,9 @@ export interface Trip {
   distance: number;
   fare: number;
   proofOfDeliveryPhotoUrl?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedByName?: string;
   createdAt: string;
 }
 

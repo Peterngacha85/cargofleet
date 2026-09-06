@@ -1,7 +1,7 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { TripStatus } from '../types';
 
-interface ITripLocation {
+export interface ITripLocation {
   address: string;
   latitude: number;
   longitude: number;
@@ -34,6 +34,11 @@ export interface ITrip extends Document {
   managerComment?: string;
   // Set by the destination manager when marking the trip received - proof the goods arrived.
   proofOfDeliveryPhotoUrl?: string;
+  // Soft-deleted trips stay in the database (a "trip history") instead of being erased -
+  // only a super admin can delete or restore one.
+  isDeleted: boolean;
+  deletedAt?: Date;
+  deletedBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,6 +80,11 @@ const tripSchema = new Schema<ITrip>(
     driverComment: { type: String },
     managerComment: { type: String },
     proofOfDeliveryPhotoUrl: { type: String },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    // String, not ObjectId ref: only a super admin (env-based id, not a User document) can
+    // delete a trip.
+    deletedBy: { type: String },
   },
   { timestamps: true }
 );
@@ -85,5 +95,6 @@ tripSchema.index({ status: 1 });
 tripSchema.index({ branchId: 1 });
 tripSchema.index({ destinationBranchId: 1 });
 tripSchema.index({ createdAt: -1 });
+tripSchema.index({ isDeleted: 1 });
 
 export default model<ITrip>('Trip', tripSchema);

@@ -3,7 +3,13 @@ import { ApiResponse } from '@/types/api';
 import { CreateTripPayload, Trip, TripStatus } from '@/types/trip';
 
 export const TripService = {
-  async list(params: { driverId?: string; branchId?: string; visibleToBranchId?: string; status?: TripStatus }) {
+  async list(params: {
+    driverId?: string;
+    branchId?: string;
+    visibleToBranchId?: string;
+    status?: TripStatus;
+    deleted?: boolean;
+  }) {
     const { data } = await api.get<ApiResponse<{ trips: Trip[]; count: number }>>('/trips', { params });
     return data;
   },
@@ -24,6 +30,16 @@ export const TripService = {
     const { data } = await api.post<ApiResponse<{ trip: Trip }>>(`/trips/${tripId}/complete`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return data;
+  },
+
+  async remove(tripId: string) {
+    const { data } = await api.delete<ApiResponse<{ trip: Trip }>>(`/trips/${tripId}`);
+    return data;
+  },
+
+  async restore(tripId: string) {
+    const { data } = await api.post<ApiResponse<{ trip: Trip }>>(`/trips/${tripId}/restore`);
     return data;
   },
 };

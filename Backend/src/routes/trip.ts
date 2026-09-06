@@ -1,6 +1,14 @@
 import { Router } from 'express';
-import { createTrip, getTrip, listTrips, updateTripStatus, completeTripWithPhoto } from '../controllers/tripController';
-import { authMiddleware, roleMiddleware } from '../middleware/auth';
+import {
+  createTrip,
+  getTrip,
+  listTrips,
+  updateTripStatus,
+  completeTripWithPhoto,
+  deleteTrip,
+  restoreTrip,
+} from '../controllers/tripController';
+import { authMiddleware, roleMiddleware, superAdminMiddleware } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 
 const router = Router();
@@ -17,5 +25,7 @@ router.post(
   upload.single('photo'),
   completeTripWithPhoto
 );
+router.delete('/:tripId', superAdminMiddleware, deleteTrip);
+router.post('/:tripId/restore', superAdminMiddleware, restoreTrip);
 
 export default router;

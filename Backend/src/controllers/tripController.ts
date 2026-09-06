@@ -7,6 +7,7 @@ import Manager from '../models/Manager';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { haversineDistanceKm } from '../utils/geo';
 import { uploadFile } from '../services/fileService';
+import { resolveApproverNames, approverDisplayName } from '../utils/resolveApprover';
 import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { emitToDriver } from '../websocket/emitters';
@@ -119,8 +120,12 @@ export const getTrip = async (req: AuthenticatedRequest, res: Response) => {
 
 export const listTrips = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { driverId, branchId, visibleToBranchId, status } = req.query;
-    const filter: Record<string, unknown> = {};
+    const { driverId, branchId, visibleToBranchId, status, deleted } = req.query;
+    // Trip history (deleted=true) is its own separate view, not just another status - a
+    // soft-deleted trip's original status still matters for context, so it isn't a status
+    // filter value. Trips created before this field existed have no isDeleted at all, so
+    // "not deleted" has to mean "not exactly true" rather than "exactly false".
+    const filter: Record<string, unknown> = { isDeleted: deleted === 'true' ? true : { $ne: true } };
     if (driverId) filter.driverId = driverId;
     if (status) filter.status = status;
 
@@ -142,7 +147,13 @@ export const listTrips = async (req: AuthenticatedRequest, res: Response) => {
       .populate('destinationBranchId', 'name')
       .sort({ createdAt: -1 });
 
-    return sendSuccess(res, 200, 'Trips retrieved', { trips, count: trips.length });
+    const nameMap = await resolveApproverNames(trips.map((t) => t.deletedBy));
+    const tripsWithNames = trips.map((t) => ({
+      ...t.toObject(),
+      deletedByName: approverDisplayName(t.deletedBy, nameMap),
+    }));
+
+    return sendSuccess(res, 200, 'Trips retrieved', { trips: tripsWithNames, count: trips.length });
   } catch (error) {
     logger.error('List trips error', { error });
     return sendError(res, 500, 'Failed to retrieve trips');
@@ -228,5 +239,39 @@ export const completeTripWithPhoto = async (req: AuthenticatedRequest, res: Resp
   } catch (error) {
     logger.error('Complete trip with photo error', { error });
     return sendError(res, 500, 'Failed to mark trip as received');
+  }
+};
+
+export const deleteTrip = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const trip = await Trip.findByIdAndUpdate(
+      req.params.tripId,
+      { isDeleted: true, deletedAt: new Date(), deletedBy: req.user!.id },
+      { new: true }
+    );
+    if (!trip) {
+      return sendError(res, 404, 'Trip not found');
+    }
+    return sendSuccess(res, 200, 'Trip deleted', { trip });
+  } catch (error) {
+    logger.error('Delete trip error', { error });
+    return sendError(res, 500, 'Failed to delete trip');
+  }
+};
+
+export const restoreTrip = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const trip = await Trip.findByIdAndUpdate(
+      req.params.tripId,
+      { isDeleted: false, $unset: { deletedAt: '', deletedBy: '' } },
+      { new: true }
+    );
+    if (!trip) {
+      return sendError(res, 404, 'Trip not found');
+    }
+    return sendSuccess(res, 200, 'Trip restored', { trip });
+  } catch (error) {
+    logger.error('Restore trip error', { error });
+    return sendError(res, 500, 'Failed to restore trip');
   }
 };
