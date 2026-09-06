@@ -24,6 +24,11 @@ export const TripService = {
     return data;
   },
 
+  async reassign(tripId: string, payload: { driverId: string; vehicleId: string; reason?: string }) {
+    const { data } = await api.post<ApiResponse<{ trip: Trip }>>(`/trips/${tripId}/reassign`, payload);
+    return data;
+  },
+
   async completeWithPhoto(tripId: string, photo: File) {
     const formData = new FormData();
     formData.append('photo', photo);

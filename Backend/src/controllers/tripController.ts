@@ -105,6 +105,82 @@ export const createTrip = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
+// A manager may only reassign trips shipping out of their own branch, mirroring the
+// origin-manager check in updateTripStatus - admins aren't scoped to a branch at all.
+const assertCanReassign = async (trip: InstanceType<typeof Trip>, userId: string, role: string) => {
+  if (role !== 'manager') return { authorized: true };
+
+  const manager = await Manager.findOne({ userId });
+  const managerBranchId = manager?.assignedBranchId?.toString();
+  if (managerBranchId !== trip.branchId.toString()) {
+    return { authorized: false, message: 'You are not authorized to reassign this trip' };
+  }
+  return { authorized: true };
+};
+
+export const reassignTripHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { driverId, vehicleId, reason } = req.body;
+
+    if (!driverId || !vehicleId) {
+      return sendError(res, 400, 'driverId and vehicleId are required');
+    }
+
+    const trip = await Trip.findById(req.params.tripId);
+    if (!trip) {
+      return sendError(res, 404, 'Trip not found');
+    }
+
+    if (trip.status !== 'scheduled') {
+      return sendError(res, 400, `Only a scheduled trip can be reassigned (this one is ${trip.status})`);
+    }
+
+    const authCheck = await assertCanReassign(trip, req.user!.id, req.user!.role);
+    if (!authCheck.authorized) {
+      return sendError(res, 403, authCheck.message!);
+    }
+
+    const driver = await Driver.findById(driverId);
+    if (!driver || driver.status !== 'active') {
+      return sendError(res, 400, 'Driver must be active to be assigned a trip');
+    }
+
+    const vehicle = await Vehicle.findById(vehicleId);
+    if (!vehicle || vehicle.status !== 'active') {
+      return sendError(res, 400, 'Vehicle must be active to be assigned a trip');
+    }
+
+    const previousDriverId = trip.driverId.toString();
+
+    trip.driverId = driverId;
+    trip.vehicleId = vehicleId;
+    trip.reassignmentReason = reason || undefined;
+    await trip.save();
+
+    if (previousDriverId !== driverId) {
+      emitToDriver(previousDriverId, 'tripUnassigned', {
+        tripId: trip._id,
+        tripNumber: trip.tripNumber,
+        reason,
+      });
+    }
+
+    emitToDriver(driverId, 'tripAssigned', {
+      tripId: trip._id,
+      tripNumber: trip.tripNumber,
+      pickupAddress: trip.pickupLocation.address,
+      dropoffAddress: trip.dropoffLocation.address,
+      estimatedEndTime: trip.estimatedEndTime,
+      fare: trip.fare,
+    });
+
+    return sendSuccess(res, 200, 'Trip reassigned', { trip });
+  } catch (error) {
+    logger.error('Reassign trip error', { error });
+    return sendError(res, 500, 'Failed to reassign trip');
+  }
+};
+
 export const getTrip = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const trip = await Trip.findById(req.params.tripId).populate('deliveryItems');

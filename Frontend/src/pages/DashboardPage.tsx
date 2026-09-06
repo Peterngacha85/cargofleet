@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const incrementPendingManagerCount = useApprovalsStore((s) => s.incrementPendingManagerCount);
   const incrementPendingVehicleCount = useApprovalsStore((s) => s.incrementPendingVehicleCount);
   const incrementScheduledTripCount = useApprovalsStore((s) => s.incrementScheduledTripCount);
+  const decrementScheduledTripCount = useApprovalsStore((s) => s.decrementScheduledTripCount);
   const setPendingDriverCount = useApprovalsStore((s) => s.setPendingDriverCount);
   const setPendingManagerCount = useApprovalsStore((s) => s.setPendingManagerCount);
   const setPendingVehicleCount = useApprovalsStore((s) => s.setPendingVehicleCount);
@@ -201,6 +202,15 @@ export default function DashboardPage() {
       incrementScheduledTripCount();
       push(`New trip assigned: ${payload.tripNumber} to ${payload.dropoffAddress}`, 'info');
     };
+    // Fires on the previous driver's own socket when a manager/admin reassigns their scheduled
+    // trip to someone else - e.g. they never responded/started it.
+    const handleTripUnassigned = (payload: { tripNumber: string; reason?: string }) => {
+      decrementScheduledTripCount();
+      push(
+        `Trip ${payload.tripNumber} was reassigned to another driver${payload.reason ? `: ${payload.reason}` : '.'}`,
+        'warning'
+      );
+    };
 
     // Tracked here (not in TeamMap) so "is this driver currently sharing?" stays accurate
     // for the Trips tab too, even when the Live Map tab isn't the one mounted right now.
@@ -216,6 +226,7 @@ export default function DashboardPage() {
     socket.on('newManagerRegistration', handleNewManager);
     socket.on('newVehicleRegistration', handleNewVehicle);
     socket.on('tripAssigned', handleTripAssigned);
+    socket.on('tripUnassigned', handleTripUnassigned);
     socket.on('driverLocationUpdate', handleLocationUpdate);
     socket.on('driverStoppedSharing', handleStoppedSharing);
     socket.on('locationSharingRequested', handleSharingRequested);
@@ -225,6 +236,7 @@ export default function DashboardPage() {
       socket.off('newManagerRegistration', handleNewManager);
       socket.off('newVehicleRegistration', handleNewVehicle);
       socket.off('tripAssigned', handleTripAssigned);
+      socket.off('tripUnassigned', handleTripUnassigned);
       socket.off('driverLocationUpdate', handleLocationUpdate);
       socket.off('driverStoppedSharing', handleStoppedSharing);
       socket.off('locationSharingRequested', handleSharingRequested);

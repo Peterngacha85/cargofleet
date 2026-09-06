@@ -13,6 +13,7 @@ interface ApprovalsState {
   incrementPendingManagerCount: () => void;
   incrementPendingVehicleCount: () => void;
   incrementScheduledTripCount: () => void;
+  decrementScheduledTripCount: () => void;
 }
 
 export const useApprovalsStore = create<ApprovalsState>((set) => ({
@@ -29,4 +30,5 @@ export const useApprovalsStore = create<ApprovalsState>((set) => ({
   incrementPendingManagerCount: () => set((s) => ({ pendingManagerCount: s.pendingManagerCount + 1 })),
   incrementPendingVehicleCount: () => set((s) => ({ pendingVehicleCount: s.pendingVehicleCount + 1 })),
   incrementScheduledTripCount: () => set((s) => ({ scheduledTripCount: s.scheduledTripCount + 1 })),
+  decrementScheduledTripCount: () => set((s) => ({ scheduledTripCount: Math.max(0, s.scheduledTripCount - 1) })),
 }));

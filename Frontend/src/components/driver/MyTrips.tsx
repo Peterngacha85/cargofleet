@@ -43,6 +43,20 @@ export default function MyTrips() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId]);
 
+  // A manager may reassign a trip away from this driver (or a new one their way) while this
+  // page happens to be open - refetch so the list doesn't sit stale until a manual reload.
+  useEffect(() => {
+    if (!driverId) return;
+    const socket = connectSocket('driver', { driverId });
+    socket.on('tripAssigned', load);
+    socket.on('tripUnassigned', load);
+    return () => {
+      socket.off('tripAssigned', load);
+      socket.off('tripUnassigned', load);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverId]);
+
   const hasActiveTrip = trips.some((t) => t.status === 'in_transit');
 
   const handleStartTrip = (trip: Trip) => {

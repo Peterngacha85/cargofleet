@@ -41,6 +41,7 @@ export interface Trip {
   tripEndTime?: string;
   distance: number;
   fare: number;
+  reassignmentReason?: string;
   proofOfDeliveryPhotoUrl?: string;
   isDeleted?: boolean;
   deletedAt?: string;

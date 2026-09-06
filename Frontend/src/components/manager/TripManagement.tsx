@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route, Camera } from 'lucide-react';
+import { MapPin, Radio, Route, Camera, AlertTriangle, UserCog } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
@@ -14,7 +14,7 @@ import { useMap } from '@/hooks/useMap';
 import { useProfileStore } from '@/stores/profileStore';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { statusLabel } from '@/utils/formatters';
+import { statusLabel, timeAgo } from '@/utils/formatters';
 import { DEFAULT_MAP_CENTER } from '@/utils/constants';
 import { geocodeAddress } from '@/utils/geocode';
 import FieldLabel from '@/components/shared/FieldLabel';
@@ -28,6 +28,10 @@ const statusStyles: Record<string, string> = {
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 };
+
+// A trip still sitting as "scheduled" this long probably means the driver isn't going to
+// start it - flagged so the manager notices it's time to reassign rather than wait indefinitely.
+const STALE_SCHEDULED_MINUTES = 60;
 
 const statusOptions = [
   { value: '', label: 'All Statuses' },
@@ -67,6 +71,11 @@ export default function TripManagement() {
   });
   const [requestingShareFor, setRequestingShareFor] = useState<string | null>(null);
   const [completingTripId, setCompletingTripId] = useState<string | null>(null);
+  const [reassigningTripId, setReassigningTripId] = useState<string | null>(null);
+  const [reassignDriverId, setReassignDriverId] = useState('');
+  const [reassignVehicleId, setReassignVehicleId] = useState('');
+  const [reassignReason, setReassignReason] = useState('');
+  const [reassignSubmitting, setReassignSubmitting] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -188,6 +197,38 @@ export default function TripManagement() {
       push(error?.response?.data?.message || 'Failed to mark trip as received', 'error');
     } finally {
       setCompletingTripId(null);
+    }
+  };
+
+  const openReassign = (trip: Trip) => {
+    setReassigningTripId(trip._id);
+    setReassignDriverId('');
+    setReassignVehicleId('');
+    setReassignReason('');
+  };
+
+  const handleReassign = async (trip: Trip) => {
+    if (!reassignDriverId || !reassignVehicleId) {
+      push('Select a driver and vehicle to reassign to.', 'warning');
+      return;
+    }
+
+    setReassignSubmitting(true);
+    try {
+      const response = await TripService.reassign(trip._id, {
+        driverId: reassignDriverId,
+        vehicleId: reassignVehicleId,
+        reason: reassignReason.trim() || undefined,
+      });
+      push(response.success ? 'Trip reassigned.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) {
+        setReassigningTripId(null);
+        loadTrips();
+      }
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to reassign trip', 'error');
+    } finally {
+      setReassignSubmitting(false);
     }
   };
 
@@ -536,15 +577,26 @@ export default function TripManagement() {
                   const canMarkReceived = inbound && trip.status !== 'completed' && trip.status !== 'cancelled';
               const driverId = idOf(trip.driverId);
               const isSharing = !!driverId && !!driverLocations[driverId];
+              const scheduledMinutes =
+                trip.status === 'scheduled' ? Math.floor((Date.now() - new Date(trip.createdAt).getTime()) / 60000) : 0;
+              const isStale = trip.status === 'scheduled' && scheduledMinutes >= STALE_SCHEDULED_MINUTES;
+              const isReassigning = reassigningTripId === trip._id;
 
               return (
-                <li key={trip._id} className="card flex flex-wrap items-center justify-between gap-2">
+                <li key={trip._id} className="flex flex-col gap-2">
+                <div className="card flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-charcoal">{trip.tripNumber}</p>
                       {crossBranch && (
                         <span className="rounded-full bg-soft-gray px-2 py-0.5 text-xs font-medium text-charcoal">
                           {inbound ? 'Inbound' : 'Outbound'}
+                        </span>
+                      )}
+                      {isStale && (
+                        <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          <AlertTriangle className="h-3 w-3" />
+                          Scheduled {timeAgo(trip.createdAt)} - not started
                         </span>
                       )}
                     </div>
@@ -555,12 +607,25 @@ export default function TripManagement() {
                       {tripDriverName(trip)} · {tripVehicleLabel(trip)}
                       {crossBranch &&
                         ` · ${tripBranchName(trip.branchId)} → ${tripBranchName(trip.destinationBranchId)}`}
+                      {trip.status === 'scheduled' && !isStale && ` · Scheduled ${timeAgo(trip.createdAt)}`}
                     </p>
+                    {trip.reassignmentReason && (
+                      <p className="text-xs text-gray-400">Reassigned - {trip.reassignmentReason}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[trip.status]}`}>
                       {statusLabel(trip.status)}
                     </span>
+                    {trip.status === 'scheduled' && (
+                      <button
+                        className="btn-secondary flex items-center gap-1"
+                        onClick={() => (isReassigning ? setReassigningTripId(null) : openReassign(trip))}
+                      >
+                        <UserCog className="h-4 w-4" />
+                        Reassign Driver
+                      </button>
+                    )}
                     {trip.status === 'in_transit' && isSharing && (
                       <button
                         className="btn-secondary flex items-center gap-1"
@@ -607,6 +672,49 @@ export default function TripManagement() {
                       </a>
                     )}
                   </div>
+                </div>
+
+                {isReassigning && (
+                  <div className="card flex flex-wrap items-end gap-3 bg-soft-gray">
+                    <div className="min-w-[160px]">
+                      <FieldLabel required>New Driver</FieldLabel>
+                      <Select
+                        value={reassignDriverId}
+                        onChange={setReassignDriverId}
+                        placeholder="Select driver"
+                        options={drivers.map((d) => ({ value: d._id, label: driverName(d._id) }))}
+                      />
+                    </div>
+                    <div className="min-w-[160px]">
+                      <FieldLabel required>New Vehicle</FieldLabel>
+                      <Select
+                        value={reassignVehicleId}
+                        onChange={setReassignVehicleId}
+                        placeholder="Select vehicle"
+                        options={vehicles.map((v) => ({ value: v._id, label: vehicleLabel(v._id) }))}
+                      />
+                    </div>
+                    <div className="min-w-[200px] flex-1">
+                      <FieldLabel>Reason (optional)</FieldLabel>
+                      <input
+                        className="input-field"
+                        placeholder="e.g. Driver unreachable"
+                        value={reassignReason}
+                        onChange={(e) => setReassignReason(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      className="btn-primary"
+                      onClick={() => handleReassign(trip)}
+                      disabled={reassignSubmitting}
+                    >
+                      {reassignSubmitting ? 'Reassigning…' : 'Confirm'}
+                    </button>
+                    <button className="btn-secondary" onClick={() => setReassigningTripId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 </li>
                   );
                 })}

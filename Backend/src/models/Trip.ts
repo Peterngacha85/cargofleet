@@ -32,6 +32,9 @@ export interface ITrip extends Document {
   totalEarnings: number;
   driverComment?: string;
   managerComment?: string;
+  // Set whenever a manager/admin swaps the assigned driver on a still-scheduled trip - e.g.
+  // the original driver went unreachable or otherwise never started it.
+  reassignmentReason?: string;
   // Set by the destination manager when marking the trip received - proof the goods arrived.
   proofOfDeliveryPhotoUrl?: string;
   // Soft-deleted trips stay in the database (a "trip history") instead of being erased -

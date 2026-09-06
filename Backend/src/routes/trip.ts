@@ -5,6 +5,7 @@ import {
   listTrips,
   updateTripStatus,
   completeTripWithPhoto,
+  reassignTripHandler,
   deleteTrip,
   restoreTrip,
 } from '../controllers/tripController';
@@ -19,6 +20,7 @@ router.get('/', listTrips);
 router.get('/:tripId', getTrip);
 router.post('/', roleMiddleware(['manager', 'admin']), createTrip);
 router.put('/:tripId/status', roleMiddleware(['manager', 'admin']), updateTripStatus);
+router.post('/:tripId/reassign', roleMiddleware(['manager', 'admin']), reassignTripHandler);
 router.post(
   '/:tripId/complete',
   roleMiddleware(['manager', 'admin']),
