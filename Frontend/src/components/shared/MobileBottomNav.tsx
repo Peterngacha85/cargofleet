@@ -23,7 +23,7 @@ export default function MobileBottomNav() {
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-[9999] flex overflow-x-auto border-t border-gray-200 bg-white md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-[9999] flex overflow-x-auto bg-charcoal md:hidden">
       {links.map(({ to, label, icon: Icon, badgeKey }) => {
         const count = badgeKey ? badgeCounts[badgeKey] : 0;
         return (
@@ -33,11 +33,12 @@ export default function MobileBottomNav() {
             end={to === '/dashboard'}
             className={({ isActive }) =>
               clsx(
-                // flex-1 spreads tabs evenly when there are few (e.g. driver's 4); min-w-0
-                // lets each still shrink below its label's width without overflowing, since
-                // the label wraps onto two lines instead of forcing a single nowrap line.
-                'relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium',
-                isActive ? 'text-charcoal' : 'text-gray-400'
+                // flex-1 spreads tabs evenly when they all fit (e.g. driver's 4); the min-w
+                // floor stops them shrinking past a readable size when there are many (e.g.
+                // admin's 10), at which point the row overflows and the nav's own
+                // overflow-x-auto kicks in a horizontal scroll instead of squeezing/overlapping.
+                'relative flex min-w-16 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium',
+                isActive ? 'text-white' : 'text-gray-400'
               )
             }
           >

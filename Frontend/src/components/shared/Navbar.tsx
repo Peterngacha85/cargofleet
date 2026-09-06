@@ -8,7 +8,7 @@ export default function Navbar() {
   const { user } = useAuth();
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6">
+    <header className="sticky top-0 z-30 flex h-14 flex-shrink-0 items-center justify-between border-b-2 border-lime bg-white px-6 shadow-sm">
       <img src="/images/logo.png" alt="CargoFleet" className="h-8 w-auto" />
       {user && (
         <Link to="/dashboard/profile" title="My Profile" className="flex items-center gap-3 text-sm transition hover:opacity-80">

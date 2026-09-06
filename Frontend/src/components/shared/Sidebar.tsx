@@ -21,7 +21,7 @@ export default function Sidebar() {
   };
 
   return (
-    <nav className="hidden w-56 flex-shrink-0 border-r border-gray-200 bg-white p-4 md:block">
+    <nav className="hidden w-56 flex-shrink-0 bg-charcoal p-4 md:block">
       <ul className="flex flex-col gap-1">
         {links.map(({ to, label, icon: Icon, badgeKey }) => {
           const count = badgeKey ? badgeCounts[badgeKey] : 0;
@@ -32,8 +32,8 @@ export default function Sidebar() {
                 end={to === '/dashboard'}
                 className={({ isActive }) =>
                   clsx(
-                    'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium',
-                    isActive ? 'bg-lime text-charcoal' : 'text-gray-600 hover:bg-soft-gray'
+                    'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    isActive ? 'bg-lime text-charcoal' : 'text-gray-300 hover:bg-white/10 hover:text-white'
                   )
                 }
               >

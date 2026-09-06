@@ -30,7 +30,7 @@ import DriverDirectory from '@/components/shared/DriverDirectory';
 import ManagerDirectory from '@/components/admin/ManagerDirectory';
 import UserManagement from '@/components/admin/UserManagement';
 import SystemAnalytics from '@/components/admin/SystemAnalytics';
-import VehicleVerificationList from '@/components/admin/VehicleVerificationList';
+import VehicleDirectory from '@/components/admin/VehicleDirectory';
 import MyProfilePage from './MyProfilePage';
 
 function RoleHome() {
@@ -180,9 +180,9 @@ export default function DashboardPage() {
   return (
     <div className="flex h-dvh flex-col">
       <Navbar />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-4 pb-20 sm:p-6 md:pb-6">
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 pb-20 sm:p-6 md:pb-6">
           <Routes>
             <Route index element={<RoleHome />} />
             <Route path="profile" element={<MyProfilePage />} />
@@ -207,7 +207,7 @@ export default function DashboardPage() {
                 <Route path="trips" element={<AllTripsList />} />
                 <Route path="drivers" element={<DriverDirectory />} />
                 <Route path="managers" element={<ManagerDirectory />} />
-                <Route path="vehicles" element={<VehicleVerificationList />} />
+                <Route path="vehicles" element={<VehicleDirectory />} />
                 <Route path="pending" element={<UserManagement />} />
                 <Route path="analytics" element={<SystemAnalytics />} />
               </>
