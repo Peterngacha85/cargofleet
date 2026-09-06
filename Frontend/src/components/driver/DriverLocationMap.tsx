@@ -14,6 +14,8 @@ export default function DriverLocationMap({ className = 'h-80 w-full' }: DriverL
   const { user } = useAuth();
   const profile = useProfileStore((s) => s.profile);
   const position = useTripTrackingStore((s) => s.position);
+  const activeTripId = useTripTrackingStore((s) => s.activeTripId);
+  const activeTripNumber = useTripTrackingStore((s) => s.activeTripNumber);
   const focusRequest = useMapFocusStore((s) => s.focusRequest);
 
   const marker: DriverLocationUpdate[] = position
@@ -24,6 +26,12 @@ export default function DriverLocationMap({ className = 'h-80 w-full' }: DriverL
           longitude: position.longitude,
           speed: position.speed ?? undefined,
           timestamp: new Date().toISOString(),
+          // This marker is built locally from the browser's own GPS state, not from the
+          // driverLocationUpdate socket broadcast (which only reaches managers/admins) -
+          // so it has to attach the active trip itself for the popup to show it correctly.
+          tripId: activeTripId ?? undefined,
+          tripNumber: activeTripNumber ?? undefined,
+          tripStatus: activeTripId ? 'in_transit' : undefined,
         },
       ]
     : [];
