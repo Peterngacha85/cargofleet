@@ -9,6 +9,7 @@ import {
   rejectVehicle,
 } from '../controllers/vehicleController';
 import { authMiddleware, roleMiddleware, superAdminMiddleware } from '../middleware/auth';
+import { upload } from '../middleware/upload';
 
 const router = Router();
 
@@ -19,8 +20,8 @@ router.get('/pending-verification', superAdminMiddleware, getPendingVerification
 
 router.get('/', listVehicles);
 router.get('/:vehicleId', getVehicle);
-router.post('/', roleMiddleware(['manager', 'admin']), createVehicle);
-router.put('/:vehicleId', roleMiddleware(['manager', 'admin']), updateVehicle);
+router.post('/', roleMiddleware(['manager', 'admin']), upload.single('photo'), createVehicle);
+router.put('/:vehicleId', roleMiddleware(['manager', 'admin']), upload.single('photo'), updateVehicle);
 router.post('/:vehicleId/verify', superAdminMiddleware, verifyVehicle);
 router.post('/:vehicleId/reject', superAdminMiddleware, rejectVehicle);
 

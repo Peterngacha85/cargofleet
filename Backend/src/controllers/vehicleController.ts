@@ -1,8 +1,11 @@
 import { Response } from 'express';
 import Vehicle from '../models/Vehicle';
 import User from '../models/User';
+import Manager from '../models/Manager';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { DEFAULT_PAGE_SIZE } from '../utils/constants';
+import { uploadFile } from '../services/fileService';
+import { resolveApproverNames, approverDisplayName } from '../utils/resolveApprover';
 import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { emitToAdmins } from '../websocket/emitters';
@@ -20,13 +23,23 @@ export const listVehicles = async (req: AuthenticatedRequest, res: Response) => 
 
     const [vehicles, total] = await Promise.all([
       Vehicle.find(filter)
+        .populate('branchId', 'name')
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum),
       Vehicle.countDocuments(filter),
     ]);
 
+    // registeredBy/verifiedBy are plain strings (not ObjectId refs) since either a manager
+    // or an env-based super admin can hold them - can't use Mongoose's populate() for these.
+    const nameMap = await resolveApproverNames(vehicles.flatMap((v) => [v.registeredBy, v.verifiedBy]));
+    const vehiclesWithNames = vehicles.map((v) => ({
+      ...v.toObject(),
+      registeredByName: approverDisplayName(v.registeredBy, nameMap),
+      verifiedByName: approverDisplayName(v.verifiedBy, nameMap),
+    }));
+
     return sendSuccess(res, 200, 'Vehicles retrieved', {
-      vehicles,
+      vehicles: vehiclesWithNames,
       count: vehicles.length,
       pagination: { page: pageNum, limit: limitNum, total },
     });
@@ -85,6 +98,9 @@ export const createVehicle = async (req: AuthenticatedRequest, res: Response) =>
     if (!registrationNumber || !vehicleType || !make || !model || !year || !capacity || !branchId || !fuelType) {
       return sendError(res, 400, 'Missing required fields');
     }
+    if (!req.file) {
+      return sendError(res, 400, 'A photo of the vehicle is required');
+    }
 
     const existing = await Vehicle.findOne({ registrationNumber: registrationNumber.toUpperCase() });
     if (existing) {
@@ -94,6 +110,7 @@ export const createVehicle = async (req: AuthenticatedRequest, res: Response) =>
     // An admin registering a vehicle themselves needs no further verification;
     // a manager's vehicle sits pending until a super admin verifies it.
     const isAdmin = req.user!.role === 'admin';
+    const { url: photoUrl } = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, 'vehicles');
 
     const vehicle = await Vehicle.create({
       registrationNumber,
@@ -104,6 +121,7 @@ export const createVehicle = async (req: AuthenticatedRequest, res: Response) =>
       capacity,
       branchId,
       fuelType,
+      photoUrl,
       registeredBy: req.user!.id,
       status: isAdmin ? 'active' : 'pending_verification',
     });
@@ -127,10 +145,55 @@ export const createVehicle = async (req: AuthenticatedRequest, res: Response) =>
 
 export const updateVehicle = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const vehicle = await Vehicle.findByIdAndUpdate(req.params.vehicleId, req.body, { new: true });
+    const vehicle = await Vehicle.findById(req.params.vehicleId);
     if (!vehicle) {
       return sendError(res, 404, 'Vehicle not found');
     }
+
+    const isAdmin = req.user!.role === 'admin';
+    if (!isAdmin) {
+      const manager = await Manager.findOne({ userId: req.user!.id });
+      if (!manager || manager.assignedBranchId?.toString() !== vehicle.branchId.toString()) {
+        return sendError(res, 403, 'You can only edit vehicles registered to your own branch');
+      }
+    }
+
+    // Only these fields are editable - registrationNumber/branchId/status etc. stay
+    // out of reach of a plain field-by-field req.body pass-through.
+    const { vehicleType, make, model, year, capacity, fuelType } = req.body;
+    if (vehicleType !== undefined) vehicle.vehicleType = vehicleType;
+    if (make !== undefined) vehicle.make = make;
+    if (model !== undefined) vehicle.model = model;
+    if (year !== undefined) vehicle.year = year;
+    if (capacity !== undefined) vehicle.capacity = capacity;
+    if (fuelType !== undefined) vehicle.fuelType = fuelType;
+
+    if (req.file) {
+      const { url } = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, 'vehicles');
+      vehicle.photoUrl = url;
+    }
+
+    // A manager editing their vehicle's details sends it back for re-verification - an
+    // admin editing (they're the verifying authority) leaves its current status alone.
+    if (!isAdmin) {
+      vehicle.status = 'pending_verification';
+      vehicle.verifiedBy = undefined;
+      vehicle.verifiedAt = undefined;
+      vehicle.rejectionReason = undefined;
+    }
+
+    await vehicle.save();
+
+    if (!isAdmin) {
+      emitToAdmins('newVehicleRegistration', {
+        vehicleId: vehicle._id,
+        registrationNumber: vehicle.registrationNumber,
+        make: vehicle.make,
+        model: vehicle.model,
+        createdAt: vehicle.createdAt,
+      });
+    }
+
     return sendSuccess(res, 200, 'Vehicle updated', { vehicle });
   } catch (error) {
     logger.error('Update vehicle error', { error });

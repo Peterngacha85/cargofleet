@@ -16,6 +16,7 @@ export interface IVehicle extends Omit<Document, 'model'> {
   verifiedBy?: string;
   verifiedAt?: Date;
   rejectionReason?: string;
+  photoUrl?: string;
   maintenanceDue?: Date;
   fuelType: FuelType;
   lastServiceDate?: Date;
@@ -53,6 +54,7 @@ const vehicleSchema = new Schema<IVehicle>(
     verifiedBy: { type: String },
     verifiedAt: { type: Date },
     rejectionReason: { type: String },
+    photoUrl: { type: String },
     maintenanceDue: { type: Date },
     fuelType: { type: String, enum: ['petrol', 'diesel', 'electric'], required: true },
     lastServiceDate: { type: Date },

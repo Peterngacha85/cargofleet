@@ -20,8 +20,11 @@ export interface Vehicle {
   fuelType: FuelType;
   branchId: string | { _id: string; name: string };
   registeredBy?: string | VehicleRegisteredBy;
+  registeredByName?: string;
+  verifiedByName?: string;
   currentDriverId?: string;
   rejectionReason?: string;
+  photoUrl?: string;
   totalTrips: number;
 }
 
@@ -34,4 +37,15 @@ export interface CreateVehiclePayload {
   capacity: number;
   branchId: string;
   fuelType: FuelType;
+  photo: File;
+}
+
+export interface UpdateVehiclePayload {
+  vehicleType?: VehicleType;
+  make?: string;
+  model?: string;
+  year?: number;
+  capacity?: number;
+  fuelType?: FuelType;
+  photo?: File;
 }

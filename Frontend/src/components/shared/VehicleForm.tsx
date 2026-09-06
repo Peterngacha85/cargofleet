@@ -31,6 +31,7 @@ interface VehicleFormProps {
 export default function VehicleForm({ branchId, branches, onCreated }: VehicleFormProps) {
   const [form, setForm] = useState(emptyForm);
   const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [photo, setPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const push = useNotificationStore((s) => s.push);
 
@@ -49,6 +50,10 @@ export default function VehicleForm({ branchId, branches, onCreated }: VehicleFo
       push('Fill in all vehicle fields before submitting.', 'warning');
       return;
     }
+    if (!photo) {
+      push('Add a photo of the vehicle before submitting.', 'warning');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -61,6 +66,7 @@ export default function VehicleForm({ branchId, branches, onCreated }: VehicleFo
         capacity: Number(form.capacity),
         fuelType: form.fuelType,
         branchId: effectiveBranchId,
+        photo,
       });
       push(
         response.success
@@ -72,6 +78,7 @@ export default function VehicleForm({ branchId, branches, onCreated }: VehicleFo
       );
       if (response.success) {
         setForm(emptyForm);
+        setPhoto(null);
         onCreated();
       }
     } catch (error: any) {
@@ -154,6 +161,15 @@ export default function VehicleForm({ branchId, branches, onCreated }: VehicleFo
             className="input-field"
             value={form.capacity}
             onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))}
+          />
+        </div>
+        <div>
+          <FieldLabel required>Photo</FieldLabel>
+          <input
+            type="file"
+            accept="image/*"
+            className="input-field"
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
           />
         </div>
       </div>
