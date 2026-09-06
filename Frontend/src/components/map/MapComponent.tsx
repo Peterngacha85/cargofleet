@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from '@/utils/constants';
 import { DriverLocationUpdate } from '@/types/map';
+import { useMapPathStore } from '@/stores/mapPathStore';
+import { LocationService } from '@/services/locationService';
 import MarkerPopup from './MarkerPopup';
 
 export interface MapFocusRequest {
@@ -66,6 +68,36 @@ function FitToMarkers({ markers }: { markers: DriverLocationUpdate[] }) {
   return null;
 }
 
+// Draws the route a driver has followed for one trip, fetched from that trip's recorded
+// location history on demand (from the "Show Path" button in its popup) rather than for
+// every marker up front, which would be wasteful for trips nobody's looking at.
+function TripPath() {
+  const pathRequest = useMapPathStore((s) => s.pathRequest);
+  const [positions, setPositions] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    if (!pathRequest) {
+      setPositions([]);
+      return;
+    }
+
+    let cancelled = false;
+    LocationService.getTripHistory(pathRequest.tripId).then((res) => {
+      if (cancelled) return;
+      const points = (res.data?.history ?? []).map((p): [number, number] => [p.latitude, p.longitude]);
+      setPositions(points);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathRequest]);
+
+  if (positions.length < 2) return null;
+
+  return <Polyline positions={positions} pathOptions={{ color: '#3B82F6', weight: 4, opacity: 0.8 }} />;
+}
+
 export type MarkerColor = 'green' | 'red';
 
 const markerHex: Record<MarkerColor, string> = {
@@ -127,6 +159,7 @@ export default function MapComponent({
       />
       <FitToMarkers markers={markers} />
       <FlyToMarker markers={markers} focusRequest={focusRequest} />
+      <TripPath />
       {markers.map((m) => (
         <Marker
           key={m.driverId}
@@ -140,6 +173,7 @@ export default function MapComponent({
               longitude={m.longitude}
               speed={m.speed}
               lastUpdated={m.timestamp}
+              tripId={m.tripId}
               tripNumber={m.tripNumber}
               dropoffAddress={m.dropoffAddress}
               tripStatus={m.tripStatus}

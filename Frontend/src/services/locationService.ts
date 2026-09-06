@@ -1,14 +1,18 @@
 import { api } from './api';
 import { ApiResponse } from '@/types/api';
 
-export const LocationService = {
-  async getDriverLatestLocation(driverId: string) {
-    const { data } = await api.get<ApiResponse<{ location: unknown }>>(`/locations/driver/${driverId}/latest`);
-    return data;
-  },
+export interface LocationHistoryPoint {
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  speed?: number;
+}
 
-  async getTripLocationHistory(tripId: string) {
-    const { data } = await api.get<ApiResponse<{ history: unknown[] }>>(`/locations/trip/${tripId}/history`);
+export const LocationService = {
+  async getTripHistory(tripId: string) {
+    const { data } = await api.get<ApiResponse<{ history: LocationHistoryPoint[]; count: number }>>(
+      `/locations/trip/${tripId}/history`
+    );
     return data;
   },
 };
