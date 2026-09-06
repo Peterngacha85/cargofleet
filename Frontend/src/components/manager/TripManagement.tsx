@@ -574,7 +574,13 @@ export default function TripManagement() {
                 {filteredTrips.map((trip) => {
                   const crossBranch = isCrossBranch(trip);
                   const inbound = crossBranch && isDestinationManager(trip);
-                  const canMarkReceived = inbound && trip.status !== 'completed' && trip.status !== 'cancelled';
+                  // Being the destination-branch manager is what the backend actually checks
+                  // (tripController's assertCanMarkReceived) - it doesn't require the trip to be
+                  // cross-branch. Gating on `inbound` here as well meant this button could never
+                  // appear at all in a single-branch setup, since origin === destination branch
+                  // there. `inbound` still gates the Inbound/Outbound badge below, which IS a
+                  // purely cross-branch distinction.
+                  const canMarkReceived = isDestinationManager(trip) && trip.status === 'in_transit';
               const driverId = idOf(trip.driverId);
               const isSharing = !!driverId && !!driverLocations[driverId];
               const scheduledMinutes =
