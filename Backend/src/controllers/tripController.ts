@@ -6,9 +6,29 @@ import Branch from '../models/Branch';
 import Manager from '../models/Manager';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { haversineDistanceKm } from '../utils/geo';
+import { uploadFile } from '../services/fileService';
 import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { emitToDriver } from '../websocket/emitters';
+
+// Shared by updateTripStatus and completeTripWithPhoto - a manager may only mark a trip
+// received if it's actually landing at their branch, not just any trip passing through.
+const assertCanMarkReceived = async (trip: InstanceType<typeof Trip>, userId: string, role: string) => {
+  if (role !== 'manager') return { authorized: true };
+
+  const manager = await Manager.findOne({ userId });
+  const managerBranchId = manager?.assignedBranchId?.toString();
+  const isOriginManager = managerBranchId === trip.branchId.toString();
+  const isDestinationManager = !!trip.destinationBranchId && managerBranchId === trip.destinationBranchId.toString();
+
+  if (!isOriginManager && !isDestinationManager) {
+    return { authorized: false, message: 'You are not authorized to update this trip' };
+  }
+  if (!isDestinationManager) {
+    return { authorized: false, message: 'Only the destination branch manager can mark this trip as received' };
+  }
+  return { authorized: true };
+};
 
 const generateTripNumber = async (): Promise<string> => {
   const year = new Date().getFullYear();
@@ -137,6 +157,10 @@ export const updateTripStatus = async (req: AuthenticatedRequest, res: Response)
       return sendError(res, 400, 'status is required');
     }
 
+    if (status === 'completed') {
+      return sendError(res, 400, 'Use POST /trips/:tripId/complete with a proof-of-delivery photo instead');
+    }
+
     const trip = await Trip.findById(req.params.tripId);
     if (!trip) {
       return sendError(res, 404, 'Trip not found');
@@ -152,9 +176,6 @@ export const updateTripStatus = async (req: AuthenticatedRequest, res: Response)
       if (!isOriginManager && !isDestinationManager) {
         return sendError(res, 403, 'You are not authorized to update this trip');
       }
-      if (status === 'completed' && !isDestinationManager) {
-        return sendError(res, 403, 'Only the destination branch manager can mark this trip as received');
-      }
     }
 
     const update: Record<string, unknown> = { status };
@@ -164,15 +185,48 @@ export const updateTripStatus = async (req: AuthenticatedRequest, res: Response)
 
     const updatedTrip = await Trip.findByIdAndUpdate(req.params.tripId, update, { new: true });
 
-    if (status === 'completed') {
-      await Driver.findByIdAndUpdate(trip.driverId, {
-        $inc: { totalTrips: 1, completedTrips: 1, totalEarnings: trip.fare },
-      });
-    }
-
     return sendSuccess(res, 200, 'Trip status updated', { trip: updatedTrip });
   } catch (error) {
     logger.error('Update trip status error', { error });
     return sendError(res, 500, 'Failed to update trip status');
+  }
+};
+
+export const completeTripWithPhoto = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const trip = await Trip.findById(req.params.tripId);
+    if (!trip) {
+      return sendError(res, 404, 'Trip not found');
+    }
+
+    const authCheck = await assertCanMarkReceived(trip, req.user!.id, req.user!.role);
+    if (!authCheck.authorized) {
+      return sendError(res, 403, authCheck.message!);
+    }
+
+    if (trip.status !== 'in_transit') {
+      return sendError(res, 400, `This trip is ${trip.status}, not in transit`);
+    }
+
+    const file = req.file;
+    if (!file) {
+      return sendError(res, 400, 'A proof-of-delivery photo is required to mark this trip as received');
+    }
+
+    const { url } = await uploadFile(file.buffer, file.originalname, file.mimetype, 'proof-of-delivery');
+
+    trip.status = 'completed';
+    trip.tripEndTime = new Date();
+    trip.proofOfDeliveryPhotoUrl = url;
+    await trip.save();
+
+    await Driver.findByIdAndUpdate(trip.driverId, {
+      $inc: { totalTrips: 1, completedTrips: 1, totalEarnings: trip.fare },
+    });
+
+    return sendSuccess(res, 200, 'Trip marked as received', { trip });
+  } catch (error) {
+    logger.error('Complete trip with photo error', { error });
+    return sendError(res, 500, 'Failed to mark trip as received');
   }
 };

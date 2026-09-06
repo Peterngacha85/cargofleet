@@ -32,6 +32,8 @@ export interface ITrip extends Document {
   totalEarnings: number;
   driverComment?: string;
   managerComment?: string;
+  // Set by the destination manager when marking the trip received - proof the goods arrived.
+  proofOfDeliveryPhotoUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -72,6 +74,7 @@ const tripSchema = new Schema<ITrip>(
     totalEarnings: { type: Number, default: 0 },
     driverComment: { type: String },
     managerComment: { type: String },
+    proofOfDeliveryPhotoUrl: { type: String },
   },
   { timestamps: true }
 );

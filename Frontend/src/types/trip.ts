@@ -41,6 +41,7 @@ export interface Trip {
   tripEndTime?: string;
   distance: number;
   fare: number;
+  proofOfDeliveryPhotoUrl?: string;
   createdAt: string;
 }
 

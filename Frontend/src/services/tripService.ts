@@ -17,4 +17,13 @@ export const TripService = {
     const { data } = await api.put<ApiResponse<{ trip: Trip }>>(`/trips/${tripId}/status`, { status });
     return data;
   },
+
+  async completeWithPhoto(tripId: string, photo: File) {
+    const formData = new FormData();
+    formData.append('photo', photo);
+    const { data } = await api.post<ApiResponse<{ trip: Trip }>>(`/trips/${tripId}/complete`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
 };

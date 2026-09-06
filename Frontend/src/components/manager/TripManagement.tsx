@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route } from 'lucide-react';
+import { MapPin, Radio, Route, Camera } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
@@ -66,6 +66,8 @@ export default function TripManagement() {
     dropoff: false,
   });
   const [requestingShareFor, setRequestingShareFor] = useState<string | null>(null);
+  const [completingTripId, setCompletingTripId] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -165,10 +167,28 @@ export default function TripManagement() {
     }
   };
 
-  const handleMarkReceived = async (tripId: string) => {
-    const response = await TripService.updateStatus(tripId, 'completed');
-    push(response.message, response.success ? 'success' : 'error');
-    if (response.success) loadTrips();
+  // Opens the device's camera (or file picker on desktop) - the actual upload happens once
+  // a photo comes back, in handlePhotoSelected.
+  const handleMarkReceived = (tripId: string) => {
+    setCompletingTripId(tripId);
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const tripId = completingTripId;
+    e.target.value = '';
+    if (!file || !tripId) return;
+
+    try {
+      const response = await TripService.completeWithPhoto(tripId, file);
+      push(response.success ? 'Trip marked as received.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) loadTrips();
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to mark trip as received', 'error');
+    } finally {
+      setCompletingTripId(null);
+    }
   };
 
   const handleFindCoordinates = async (kind: 'pickup' | 'dropoff') => {
@@ -270,6 +290,15 @@ export default function TripManagement() {
 
   return (
     <div className="flex flex-col gap-6">
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handlePhotoSelected}
+      />
+
       <div className="card">
         <h2 className="mb-4 font-semibold text-charcoal">Create Trip</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -557,9 +586,25 @@ export default function TripManagement() {
                       </>
                     )}
                     {canMarkReceived && (
-                      <button className="btn-primary" onClick={() => handleMarkReceived(trip._id)}>
-                        Mark Received
+                      <button
+                        className="btn-primary flex items-center gap-1"
+                        onClick={() => handleMarkReceived(trip._id)}
+                        disabled={completingTripId === trip._id}
+                      >
+                        <Camera className="h-4 w-4" />
+                        {completingTripId === trip._id ? 'Uploading…' : 'Mark Received'}
                       </button>
+                    )}
+                    {trip.status === 'completed' && trip.proofOfDeliveryPhotoUrl && (
+                      <a
+                        href={trip.proofOfDeliveryPhotoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary flex items-center gap-1"
+                      >
+                        <Camera className="h-4 w-4" />
+                        View Photo
+                      </a>
                     )}
                   </div>
                 </li>
