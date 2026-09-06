@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route, Trash2, History, ArrowLeft, RotateCcw, AlertTriangle, UserCog } from 'lucide-react';
+import { MapPin, Radio, Route, Trash2, History, ArrowLeft, RotateCcw, AlertTriangle, UserCog, Camera } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
@@ -326,6 +326,17 @@ export default function AllTripsList() {
                         {requestingShareFor === trip._id ? 'Requesting…' : 'Request Sharing'}
                       </button>
                     </>
+                  )}
+                  {!showHistory && trip.status === 'completed' && trip.proofOfDeliveryPhotoUrl && (
+                    <a
+                      href={trip.proofOfDeliveryPhotoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary flex items-center gap-1"
+                    >
+                      <Camera className="h-4 w-4" />
+                      View Photo
+                    </a>
                   )}
                   {user?.role === 'admin' &&
                     (showHistory ? (
