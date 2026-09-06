@@ -108,8 +108,10 @@ export const config = {
     },
   ].filter((admin) => admin.email && admin.password && admin.secretCode),
 
-  frontendUrl: env.FRONTEND_URL,
-  socketIoCorsOrigin: env.SOCKET_IO_CORS_ORIGIN,
+  // Comma-separated so both CORS checks can allow multiple origins (e.g. local dev +
+  // production) - a bare single value still works fine, it's just a list of one.
+  frontendUrls: env.FRONTEND_URL.split(',').map((url) => url.trim()).filter(Boolean),
+  socketIoCorsOrigins: env.SOCKET_IO_CORS_ORIGIN.split(',').map((url) => url.trim()).filter(Boolean),
 
   rateLimit: {
     windowMs: parseInt(env.RATE_LIMIT_WINDOW_MS, 10),
