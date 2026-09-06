@@ -11,7 +11,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useTripTrackingStore } from '@/stores/tripTrackingStore';
-import { useMap } from '@/hooks/useMap';
+import { useMapStore } from '@/stores/mapStore';
 import { TripService } from '@/services/tripService';
 import { DriverLocationUpdate } from '@/types/map';
 import DriverDashboard from '@/components/driver/DriverDashboard';
@@ -65,7 +65,12 @@ export default function DashboardPage() {
   const setTrackedPosition = useTripTrackingStore((s) => s.setPosition);
   const startTrackedTrip = useTripTrackingStore((s) => s.startTrip);
   const { position } = useLocation(role === 'driver' && !!activeTripId);
-  const { upsertDriverLocation, removeDriverLocation } = useMap();
+  // Selecting only the two actions (not driverLocations itself, via the useMap() wrapper)
+  // keeps this component from re-rendering on every driver's GPS tick (~every 2s) no
+  // matter which page is open - that churn was making inputs elsewhere feel intermittently
+  // unresponsive if a click landed right as a re-render was committing.
+  const upsertDriverLocation = useMapStore((s) => s.upsertDriverLocation);
+  const removeDriverLocation = useMapStore((s) => s.removeDriverLocation);
 
   useEffect(() => {
     fetchProfile();
@@ -178,7 +183,7 @@ export default function DashboardPage() {
     loaded && profile && profile.role !== 'admin' && !profile.profileComplete && !completionPromptDismissed;
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-screen flex-col">
       <Navbar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar />

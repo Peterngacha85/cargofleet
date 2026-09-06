@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { BarChart3 } from 'lucide-react';
-import { DriverService } from '@/services/driverService';
+import { useEffect, useMemo, useState } from 'react';
+import { BarChart3, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import clsx from 'clsx';
 import { api } from '@/services/api';
-import { Branch } from '@/types/driver';
+import { formatCurrency } from '@/utils/formatters';
 import Select from '@/components/shared/Select';
+import SearchInput from '@/components/shared/SearchInput';
 import EmptyState from '@/components/shared/EmptyState';
 import AnalyticsStatsGrid from '@/components/manager/AnalyticsStatsGrid';
 
@@ -16,53 +17,64 @@ interface Analytics {
   averageRating: number;
 }
 
+interface BranchAnalytics extends Analytics {
+  branchId: string;
+  branchName: string;
+}
+
 const periodOptions = [
   { value: 'week', label: 'Past Week' },
   { value: 'month', label: 'Past Month' },
   { value: 'year', label: 'Past Year' },
 ];
 
+type SortField = 'branchName' | keyof Analytics;
+
+const columns: { field: SortField; label: string }[] = [
+  { field: 'branchName', label: 'Branch' },
+  { field: 'totalTrips', label: 'Trips' },
+  { field: 'completedTrips', label: 'Completed' },
+  { field: 'completionRate', label: 'Completion' },
+  { field: 'totalEarnings', label: 'Earnings' },
+  { field: 'totalKilometers', label: 'Kilometers' },
+  { field: 'averageRating', label: 'Rating' },
+];
+
 export default function SystemAnalytics() {
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [analyticsByBranch, setAnalyticsByBranch] = useState<Record<string, Analytics>>({});
+  const [branches, setBranches] = useState<BranchAnalytics[]>([]);
+  const [systemTotals, setSystemTotals] = useState<Analytics | null>(null);
   const [period, setPeriod] = useState('month');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<{ field: SortField; direction: 'asc' | 'desc' }>({
+    field: 'totalTrips',
+    direction: 'desc',
+  });
 
   useEffect(() => {
-    DriverService.getBranches().then((res) => setBranches(res.data?.branches ?? []));
-  }, []);
-
-  useEffect(() => {
-    if (branches.length === 0) return;
-    Promise.all(
-      branches.map((b) =>
-        api
-          .get(`/analytics/branch/${b._id}`, { params: { period } })
-          .then(({ data }) => [b._id, data.data?.analytics as Analytics | undefined] as const)
-      )
-    ).then((entries) => {
-      const map: Record<string, Analytics> = {};
-      entries.forEach(([id, a]) => {
-        if (a) map[id] = a;
-      });
-      setAnalyticsByBranch(map);
+    // One batched request for every branch's numbers, instead of firing a separate
+    // /analytics/branch/:id call per branch - matters once there are dozens of them.
+    api.get('/analytics/system', { params: { period } }).then(({ data }) => {
+      setBranches(data.data?.branches ?? []);
+      setSystemTotals(data.data?.systemTotals ?? null);
     });
-  }, [branches, period]);
+  }, [period]);
 
-  const allAnalytics = Object.values(analyticsByBranch);
-  const totalTrips = allAnalytics.reduce((sum, a) => sum + a.totalTrips, 0);
-  const completedTrips = allAnalytics.reduce((sum, a) => sum + a.completedTrips, 0);
+  const rows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const filtered = branches.filter((b) => !query || b.branchName.toLowerCase().includes(query));
 
-  const systemTotals: Analytics | null = allAnalytics.length
-    ? {
-        totalTrips,
-        completedTrips,
-        completionRate: totalTrips ? Math.round((completedTrips / totalTrips) * 1000) / 10 : 0,
-        totalEarnings: allAnalytics.reduce((sum, a) => sum + a.totalEarnings, 0),
-        totalKilometers: allAnalytics.reduce((sum, a) => sum + a.totalKilometers, 0),
-        averageRating:
-          Math.round((allAnalytics.reduce((sum, a) => sum + a.averageRating, 0) / allAnalytics.length) * 10) / 10,
-      }
-    : null;
+    return [...filtered].sort((a, b) => {
+      const dir = sort.direction === 'asc' ? 1 : -1;
+      if (sort.field === 'branchName') return a.branchName.localeCompare(b.branchName) * dir;
+      return (a[sort.field] - b[sort.field]) * dir;
+    });
+  }, [branches, search, sort]);
+
+  const handleSort = (field: SortField) => {
+    setSort((prev) =>
+      prev.field === field ? { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { field, direction: 'desc' }
+    );
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -82,21 +94,69 @@ export default function SystemAnalytics() {
         )}
       </div>
 
-      <div className="flex flex-col gap-6">
-        <h2 className="font-semibold text-charcoal">By Branch</h2>
-        {branches.map((branch) => {
-          const analytics = analyticsByBranch[branch._id];
-          return (
-            <div key={branch._id}>
-              <h3 className="mb-2 text-sm font-medium text-gray-500">{branch.name}</h3>
-              {analytics ? (
-                <AnalyticsStatsGrid {...analytics} />
-              ) : (
-                <p className="text-sm text-gray-400">Loading…</p>
-              )}
+      <div className="flex flex-col gap-4">
+        <div className="sticky top-0 z-10 bg-soft-gray pb-3">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-semibold text-charcoal">By Branch</h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <SearchInput className="min-w-[200px] flex-1" value={search} onChange={setSearch} placeholder="Search branches…" />
+          </div>
+        </div>
+
+        {branches.length === 0 ? (
+          <p className="text-sm text-gray-500">No branches yet.</p>
+        ) : rows.length === 0 ? (
+          <EmptyState icon={BarChart3} title="No matching branches" description="Try a different search." />
+        ) : (
+          // Same plain-list structure as the Trips tab (no <table>, no nested scroll
+          // container) - a nested overflow-auto box here was the one thing every failed
+          // attempt at this had in common, so this drops it and lets the list grow with
+          // the page like every other list in the app already does.
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <div className="min-w-[720px]">
+              <div className="grid grid-cols-7 gap-2 border-b border-gray-200 bg-soft-gray px-4 py-3">
+                {columns.map(({ field, label }) => (
+                  <button
+                    key={field}
+                    type="button"
+                    onClick={() => handleSort(field)}
+                    className={clsx(
+                      'flex items-center gap-1 whitespace-nowrap text-left text-xs font-medium uppercase tracking-wide text-gray-500 hover:text-charcoal',
+                      field !== 'branchName' && 'justify-end'
+                    )}
+                  >
+                    {label}
+                    {sort.field === field ? (
+                      sort.direction === 'asc' ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3 w-3 opacity-30" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {rows.map((b) => (
+                <div
+                  key={b.branchId}
+                  className="grid grid-cols-7 gap-2 border-b border-gray-100 px-4 py-3 text-sm hover:bg-soft-gray/50"
+                >
+                  <span className="font-medium text-charcoal">{b.branchName}</span>
+                  <span className="text-right text-charcoal">{b.totalTrips}</span>
+                  <span className="text-right text-charcoal">{b.completedTrips}</span>
+                  <span className="text-right text-charcoal">{b.completionRate}%</span>
+                  <span className="text-right text-charcoal">{formatCurrency(b.totalEarnings)}</span>
+                  <span className="text-right text-charcoal">{b.totalKilometers}</span>
+                  <span className="text-right text-charcoal">{b.averageRating.toFixed(1)}</span>
+                </div>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        )}
       </div>
     </div>
   );
