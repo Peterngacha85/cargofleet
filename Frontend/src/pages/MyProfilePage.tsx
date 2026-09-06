@@ -79,10 +79,7 @@ export default function MyProfilePage() {
         <p className="text-sm text-gray-500">Super admin credentials are managed via environment configuration.</p>
       )}
 
-      <button
-        onClick={handleLogout}
-        className="btn-secondary flex w-fit items-center gap-2 text-charcoal hover:text-red-600"
-      >
+      <button onClick={handleLogout} className="btn-secondary flex w-fit items-center gap-2">
         <LogOut className="h-4 w-4" />
         Logout
       </button>
