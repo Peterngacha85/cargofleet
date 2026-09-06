@@ -13,6 +13,9 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { useTripTrackingStore } from '@/stores/tripTrackingStore';
 import { useMapStore } from '@/stores/mapStore';
 import { TripService } from '@/services/tripService';
+import { DriverService } from '@/services/driverService';
+import { VehicleService } from '@/services/vehicleService';
+import { api } from '@/services/api';
 import { DriverLocationUpdate } from '@/types/map';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import MyTrips from '@/components/driver/MyTrips';
@@ -47,6 +50,10 @@ export default function DashboardPage() {
   const incrementPendingManagerCount = useApprovalsStore((s) => s.incrementPendingManagerCount);
   const incrementPendingVehicleCount = useApprovalsStore((s) => s.incrementPendingVehicleCount);
   const incrementScheduledTripCount = useApprovalsStore((s) => s.incrementScheduledTripCount);
+  const setPendingDriverCount = useApprovalsStore((s) => s.setPendingDriverCount);
+  const setPendingManagerCount = useApprovalsStore((s) => s.setPendingManagerCount);
+  const setPendingVehicleCount = useApprovalsStore((s) => s.setPendingVehicleCount);
+  const setScheduledTripCount = useApprovalsStore((s) => s.setScheduledTripCount);
   const push = useNotificationStore((s) => s.push);
 
   const notificationNamespace = role === 'admin' ? 'admin' : role === 'driver' ? 'driver' : 'manager';
@@ -77,6 +84,24 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Populate sidebar badge counts as soon as the dashboard loads, rather than only after the
+  // user happens to visit the specific approvals/vehicles page that would otherwise set them.
+  useEffect(() => {
+    if (role === 'admin') {
+      DriverService.getPendingApproval().then((res) => setPendingDriverCount(res.data?.drivers.length ?? 0));
+      api
+        .get('/managers/pending-verification')
+        .then((res) => setPendingManagerCount(res.data.data?.managers?.length ?? 0));
+      VehicleService.list({}).then((res) => {
+        const list = res.data?.vehicles ?? [];
+        setPendingVehicleCount(list.filter((v) => v.status === 'pending_verification').length);
+      });
+    } else if (role === 'manager') {
+      DriverService.getPendingApproval().then((res) => setPendingDriverCount(res.data?.drivers.length ?? 0));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
+
   // tripTrackingStore is in-memory only, so a refresh/navigation away and back would otherwise
   // silently drop tracking for a trip the backend still considers in_transit. Restore it from
   // the source of truth once per session - guarded by a ref (not activeTripId) so a deliberate
@@ -89,10 +114,12 @@ export default function DashboardPage() {
     hasAttemptedRestoreRef.current = true;
 
     TripService.list({ driverId }).then((res) => {
-      const active = (res.data?.trips ?? []).find((t) => t.status === 'in_transit');
+      const trips = res.data?.trips ?? [];
+      const active = trips.find((t) => t.status === 'in_transit');
       if (active) {
         startTrackedTrip(active._id, active.tripNumber);
       }
+      setScheduledTripCount(trips.filter((t) => t.status === 'scheduled').length);
     });
   }, [role, profile?.driver?._id, startTrackedTrip]);
 
