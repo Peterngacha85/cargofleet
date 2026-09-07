@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '@/services/api';
 import { useProfileStore } from '@/stores/profileStore';
 import { useTripTrackingStore } from '@/stores/tripTrackingStore';
@@ -13,6 +13,7 @@ export default function DriverDashboard() {
   const profile = useProfileStore((s) => s.profile);
   const push = useNotificationStore((s) => s.push);
   const { activeTripId, activeTripNumber, stopTrip } = useTripTrackingStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const driverId = profile?.driver?._id;
@@ -58,8 +59,10 @@ export default function DriverDashboard() {
       </div>
 
       <div>
-        <h2 className="mb-2 font-semibold text-charcoal">Your Trips</h2>
-        <ActiveTrips trips={trips} />
+        <Link to="/dashboard/trips" className="mb-2 inline-block font-semibold text-charcoal hover:text-lime">
+          Your Trips →
+        </Link>
+        <ActiveTrips trips={trips} onSelectTrip={() => navigate('/dashboard/trips')} />
       </div>
 
       <DriverLocationMap />
