@@ -428,7 +428,26 @@ export default function TripManagement() {
             <FieldLabel required>Destination Branch</FieldLabel>
             <Select
               value={form.destinationBranchId || branchId || ''}
-              onChange={(v) => setForm((f) => ({ ...f, destinationBranchId: v }))}
+              onChange={(v) => {
+                // Picking a different branch means this is a real handoff to that branch, not
+                // a customer delivery - fill in its actual registered address/contact as a
+                // starting point (still editable). Picking your own branch back leaves Dropoff
+                // alone, since that's the case where it's a customer's own address instead.
+                const branch = v !== branchId ? branches.find((b) => b._id === v) : undefined;
+                setForm((f) => ({
+                  ...f,
+                  destinationBranchId: v,
+                  ...(branch
+                    ? {
+                        dropoffAddress: branch.address,
+                        dropoffLat: String(branch.latitude),
+                        dropoffLng: String(branch.longitude),
+                        dropoffContactName: `${branch.name} Branch`,
+                        dropoffContactPhone: branch.phone,
+                      }
+                    : {}),
+                }));
+              }}
               placeholder="Select destination branch"
               options={branches.map((b) => ({ value: b._id, label: b.name }))}
             />
