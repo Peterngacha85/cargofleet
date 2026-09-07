@@ -19,6 +19,7 @@ export interface IDriver extends Document {
   completedTrips: number;
   avgRating: number;
   totalEarnings: number;
+  totalPaid: number;
   advanceAmount: number;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +49,7 @@ const driverSchema = new Schema<IDriver>(
     completedTrips: { type: Number, default: 0, min: 0 },
     avgRating: { type: Number, default: 0, min: 0, max: 5 },
     totalEarnings: { type: Number, default: 0, min: 0 },
+    totalPaid: { type: Number, default: 0, min: 0 },
     advanceAmount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }

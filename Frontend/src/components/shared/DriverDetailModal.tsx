@@ -5,6 +5,7 @@ import DetailField from './DetailField';
 import Select from './Select';
 import FieldLabel from './FieldLabel';
 import DriverRatingHistory from './DriverRatingHistory';
+import DriverPayments from './DriverPayments';
 import { DriverService } from '@/services/driverService';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,6 +35,7 @@ export default function DriverDetailModal({ driver, onClose, onReassigned }: Dri
   const [branches, setBranches] = useState<Branch[]>([]);
   const [newBranchId, setNewBranchId] = useState('');
   const [reassigning, setReassigning] = useState(false);
+  const [totalPaid, setTotalPaid] = useState(driver.totalPaid ?? 0);
   const push = useNotificationStore((s) => s.push);
 
   useEffect(() => {
@@ -97,6 +99,16 @@ export default function DriverDetailModal({ driver, onClose, onReassigned }: Dri
       {driver.status === 'rejected' && driver.rejectionReason && (
         <p className="mt-4 text-sm text-red-600">Rejection reason: {driver.rejectionReason}</p>
       )}
+
+      <div className="mt-6 border-t border-gray-100 pt-4">
+        <h3 className="mb-3 text-sm font-semibold text-charcoal">Payments</h3>
+        <DriverPayments
+          driverId={driver._id}
+          totalEarnings={driver.totalEarnings ?? 0}
+          totalPaid={totalPaid}
+          onPaid={setTotalPaid}
+        />
+      </div>
 
       <div className="mt-6 border-t border-gray-100 pt-4">
         <h3 className="mb-3 text-sm font-semibold text-charcoal">Ratings</h3>

@@ -10,6 +10,7 @@ import ratingRoutes from './rating';
 import photoRoutes from './photo';
 import locationRoutes from './location';
 import analyticsRoutes from './analytics';
+import paymentRoutes from './payment';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/ratings', ratingRoutes);
 router.use('/photos', photoRoutes);
 router.use('/locations', locationRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/payments', paymentRoutes);
 
 export default router;

@@ -30,6 +30,7 @@ export interface Driver {
   completedTrips: number;
   avgRating: number;
   totalEarnings: number;
+  totalPaid?: number;
   createdAt: string;
 }
 

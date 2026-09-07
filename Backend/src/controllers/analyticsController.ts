@@ -27,7 +27,10 @@ export const getBranchAnalytics = async (req: Request, res: Response) => {
     const trips = await Trip.find({ branchId, createdAt: { $gte: since }, isDeleted: { $ne: true } });
     const completedTrips = trips.filter((t) => t.status === 'completed');
 
-    const totalEarnings = completedTrips.reduce((sum, t) => sum + t.totalEarnings, 0);
+    // Trip.totalEarnings is never actually set anywhere (only Driver.totalEarnings is, via
+    // $inc on trip completion) - fare is the real source of truth for what a completed trip
+    // earned.
+    const totalEarnings = completedTrips.reduce((sum, t) => sum + t.fare, 0);
     const totalKilometers = trips.reduce((sum, t) => sum + t.distance, 0);
 
     const rankedDrivers = await Driver.find({ branchId }).sort({ avgRating: -1, totalTrips: -1 });
@@ -86,7 +89,8 @@ export const getSystemAnalytics = async (req: Request, res: Response) => {
           totalTrips: { $sum: 1 },
           completedTrips: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
           totalKilometers: { $sum: '$distance' },
-          totalEarnings: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$totalEarnings', 0] } },
+          // Same fix as getBranchAnalytics - Trip.totalEarnings is never populated, fare is.
+          totalEarnings: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$fare', 0] } },
         },
       },
     ]);
