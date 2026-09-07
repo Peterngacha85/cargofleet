@@ -7,6 +7,7 @@ import DetailField from '@/components/shared/DetailField';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import DriverRatingHistory from '@/components/shared/DriverRatingHistory';
 import DriverPayments from '@/components/shared/DriverPayments';
+import DriverPerformanceFields from '@/components/shared/DriverPerformanceFields';
 import { formatDate, statusLabel } from '@/utils/formatters';
 
 export default function MyProfilePage() {
@@ -58,6 +59,7 @@ export default function MyProfilePage() {
             <DetailField label="Average Rating" value={profile.driver.avgRating} />
             <DetailField label="Total Trips" value={profile.driver.totalTrips} />
             <DetailField label="Completed Trips" value={profile.driver.completedTrips} />
+            <DriverPerformanceFields driverId={profile.driver._id} />
           </div>
           <p className="mt-4 text-xs text-gray-400">
             These details are set once and verified by your branch manager. Contact your manager if anything needs

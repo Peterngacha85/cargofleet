@@ -3,6 +3,8 @@ import Driver from '../models/Driver';
 import Branch from '../models/Branch';
 import Vehicle from '../models/Vehicle';
 import DriverRating from '../models/DriverRating';
+import Trip from '../models/Trip';
+import Delivery from '../models/Delivery';
 import { approveDriver, rejectDriver, assignVehicleToDriver, reassignDriverBranch } from '../services/driverService';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../middleware/auth';
@@ -186,5 +188,41 @@ export const getDriverRatings = async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Get driver ratings error', { error });
     return sendError(res, 500, 'Failed to retrieve ratings');
+  }
+};
+
+export const getDriverPerformance = async (req: Request, res: Response) => {
+  try {
+    const { driverId } = req.params;
+
+    const completedTrips = await Trip.find({
+      driverId,
+      status: 'completed',
+      isDeleted: { $ne: true },
+    }).select('tripEndTime estimatedEndTime deliveryItems');
+
+    const totalCompletedTrips = completedTrips.length;
+    // A trip with no recorded tripEndTime (shouldn't happen once completed, but the field is
+    // optional on the schema) can't be judged on-time either way - excluded from both sides
+    // of the ratio rather than silently counted as late.
+    const judgeable = completedTrips.filter((t) => t.tripEndTime);
+    const onTimeCount = judgeable.filter((t) => t.tripEndTime! <= t.estimatedEndTime).length;
+    const onTimePercentage = judgeable.length > 0 ? Math.round((onTimeCount / judgeable.length) * 1000) / 10 : 0;
+
+    const deliveryItemIds = completedTrips.flatMap((t) => t.deliveryItems);
+    const damageIncidents = await Delivery.countDocuments({
+      _id: { $in: deliveryItemIds },
+      'condition.final': 'damaged',
+    });
+
+    return sendSuccess(res, 200, 'Driver performance retrieved', {
+      totalCompletedTrips,
+      onTimeCount,
+      onTimePercentage,
+      damageIncidents,
+    });
+  } catch (error) {
+    logger.error('Get driver performance error', { error });
+    return sendError(res, 500, 'Failed to retrieve driver performance');
   }
 };

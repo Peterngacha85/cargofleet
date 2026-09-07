@@ -2,6 +2,7 @@ import { api } from './api';
 import { ApiResponse } from '@/types/api';
 import { Driver, Branch } from '@/types/driver';
 import { DriverRatingsResponse } from '@/types/rating';
+import { DriverPerformance } from '@/types/performance';
 
 export const DriverService = {
   async list(params: { branchId?: string; status?: string }) {
@@ -50,6 +51,11 @@ export const DriverService = {
 
   async getRatings(driverId: string) {
     const { data } = await api.get<ApiResponse<DriverRatingsResponse>>(`/drivers/${driverId}/ratings`);
+    return data;
+  },
+
+  async getPerformance(driverId: string) {
+    const { data } = await api.get<ApiResponse<DriverPerformance>>(`/drivers/${driverId}/performance`);
     return data;
   },
 };

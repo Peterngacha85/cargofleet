@@ -6,6 +6,7 @@ import Select from './Select';
 import FieldLabel from './FieldLabel';
 import DriverRatingHistory from './DriverRatingHistory';
 import DriverPayments from './DriverPayments';
+import DriverPerformanceFields from './DriverPerformanceFields';
 import { DriverService } from '@/services/driverService';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -94,6 +95,7 @@ export default function DriverDetailModal({ driver, onClose, onReassigned }: Dri
         <DetailField label="Completed Trips" value={driver.completedTrips} />
         <DetailField label="Total Earnings" value={formatCurrency(driver.totalEarnings ?? 0)} />
         <DetailField label="Registered" value={driver.createdAt ? formatDate(driver.createdAt) : undefined} />
+        <DriverPerformanceFields driverId={driver._id} />
       </div>
 
       {driver.status === 'rejected' && driver.rejectionReason && (

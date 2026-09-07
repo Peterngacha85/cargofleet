@@ -8,6 +8,7 @@ import {
   assignVehicleHandler,
   reassignBranchHandler,
   getDriverRatings,
+  getDriverPerformance,
 } from '../controllers/driverController';
 import { authMiddleware, roleMiddleware, superAdminMiddleware } from '../middleware/auth';
 
@@ -19,6 +20,7 @@ router.get('/', roleMiddleware(['manager', 'admin']), listDrivers);
 router.get('/pending-approval', roleMiddleware(['manager', 'admin']), getPendingApprovalDrivers);
 router.get('/:driverId', getDriverProfile);
 router.get('/:driverId/ratings', getDriverRatings);
+router.get('/:driverId/performance', getDriverPerformance);
 router.post('/:driverId/approve', roleMiddleware(['manager', 'admin']), approveDriverHandler);
 router.post('/:driverId/reject', roleMiddleware(['manager', 'admin']), rejectDriverHandler);
 router.post('/:driverId/assign-vehicle', roleMiddleware(['manager', 'admin']), assignVehicleHandler);
