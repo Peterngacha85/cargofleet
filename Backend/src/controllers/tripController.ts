@@ -10,7 +10,7 @@ import { uploadFile } from '../services/fileService';
 import { resolveApproverNames, approverDisplayName } from '../utils/resolveApprover';
 import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { emitToDriver } from '../websocket/emitters';
+import { emitToDriver, emitToManagers, emitToAdmins } from '../websocket/emitters';
 
 // Shared by updateTripStatus and completeTripWithPhoto - a manager may only mark a trip
 // received if it's actually landing at their branch, not just any trip passing through.
@@ -305,6 +305,9 @@ export const updateTripStatus = async (req: AuthenticatedRequest, res: Response)
 
     const updatedTrip = await Trip.findByIdAndUpdate(req.params.tripId, update, { new: true });
 
+    emitToManagers('tripStatusChanged', { tripId: req.params.tripId, status });
+    emitToAdmins('tripStatusChanged', { tripId: req.params.tripId, status });
+
     return sendSuccess(res, 200, 'Trip status updated', { trip: updatedTrip });
   } catch (error) {
     logger.error('Update trip status error', { error });
@@ -343,6 +346,9 @@ export const completeTripWithPhoto = async (req: AuthenticatedRequest, res: Resp
     await Driver.findByIdAndUpdate(trip.driverId, {
       $inc: { totalTrips: 1, completedTrips: 1, totalEarnings: trip.fare },
     });
+
+    emitToManagers('tripStatusChanged', { tripId: trip._id, status: 'completed' });
+    emitToAdmins('tripStatusChanged', { tripId: trip._id, status: 'completed' });
 
     return sendSuccess(res, 200, 'Trip marked as received', { trip });
   } catch (error) {

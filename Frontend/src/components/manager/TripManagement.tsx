@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route, Camera, AlertTriangle, UserCog } from 'lucide-react';
+import { MapPin, Radio, Route, Camera, AlertTriangle, UserCog, Star } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
 import { requestLocationSharing } from '@/services/socketService';
-import { Trip } from '@/types/trip';
+import { LocationService } from '@/services/locationService';
+import { Trip, TripStatus } from '@/types/trip';
 import { Driver, DriverUserSummary } from '@/types/driver';
 import { Vehicle } from '@/types/vehicle';
 import { Branch } from '@/types/driver';
 import { useAuth } from '@/hooks/useAuth';
 import { useMap } from '@/hooks/useMap';
+import { useSocket } from '@/hooks/useSocket';
 import { useProfileStore } from '@/stores/profileStore';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useMapPathStore } from '@/stores/mapPathStore';
@@ -22,6 +24,7 @@ import FieldLabel from '@/components/shared/FieldLabel';
 import Select from '@/components/shared/Select';
 import SearchInput from '@/components/shared/SearchInput';
 import EmptyState from '@/components/shared/EmptyState';
+import DriverRatingForm from './DriverRatingForm';
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-gray-200 text-gray-700',
@@ -77,6 +80,8 @@ export default function TripManagement() {
   const [reassignVehicleId, setReassignVehicleId] = useState('');
   const [reassignReason, setReassignReason] = useState('');
   const [reassignSubmitting, setReassignSubmitting] = useState(false);
+  const [ratingTripId, setRatingTripId] = useState<string | null>(null);
+  const [ratedTripIds, setRatedTripIds] = useState<Set<string>>(new Set());
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -87,7 +92,8 @@ export default function TripManagement() {
   const requestFocus = useMapFocusStore((s) => s.requestFocus);
   const requestPath = useMapPathStore((s) => s.requestPath);
   const { user } = useAuth();
-  const { driverLocations } = useMap();
+  const { driverLocations, upsertDriverLocation } = useMap();
+  const socketRef = useSocket('manager', { managerId: user?.id ?? '' }, !!user);
   const navigate = useNavigate();
   const branchId = profile?.manager?.assignedBranchId;
 
@@ -95,6 +101,23 @@ export default function TripManagement() {
     if (!branchId) return;
     TripService.list({ visibleToBranchId: branchId }).then((res) => setTrips(res.data?.trips ?? []));
   };
+
+  // Live status sync: without this, a driver starting their trip only shows up here after a
+  // manual refresh - stale enough that "Reassign Driver" stayed clickable on a trip the driver
+  // had already accepted and started.
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const handleStatusChanged = ({ tripId, status }: { tripId: string; status: TripStatus }) => {
+      setTrips((prev) => prev.map((t) => (t._id === tripId ? { ...t, status } : t)));
+    };
+
+    socket.on('tripStatusChanged', handleStatusChanged);
+    return () => {
+      socket.off('tripStatusChanged', handleStatusChanged);
+    };
+  }, [socketRef]);
 
   useEffect(() => {
     if (!branchId) return;
@@ -119,6 +142,24 @@ export default function TripManagement() {
   // Trip list entries carry populated driver/vehicle/branch summaries (unlike the branch-scoped
   // `drivers`/`vehicles` arrays above, which won't contain an inbound trip's driver/vehicle).
   const idOf = (value?: string | { _id: string }) => (typeof value === 'string' ? value : value?._id);
+
+  // Catch-up read for drivers already in transit when this page loads - a live
+  // driverLocationUpdate broadcast only reaches a socket that's connected at the moment it's
+  // sent, so a manager whose connection briefly dropped (or who just opened this page) would
+  // otherwise see "Not sharing location" for a driver who actually is.
+  useEffect(() => {
+    trips
+      .filter((t) => t.status === 'in_transit')
+      .forEach((t) => {
+        const driverId = idOf(t.driverId);
+        if (!driverId) return;
+        LocationService.getDriverLatest(driverId).then((res) => {
+          const location = res.data?.location;
+          if (location) upsertDriverLocation(location);
+        });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trips]);
 
   const tripDriverName = (trip: Trip) =>
     typeof trip.driverId === 'string' ? trip.driverId : `${trip.driverId.userId.firstName} ${trip.driverId.userId.lastName}`;
@@ -692,8 +733,39 @@ export default function TripManagement() {
                         Show Path
                       </button>
                     )}
+                    {trip.status === 'completed' &&
+                      (ratedTripIds.has(trip._id) ? (
+                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                          <Star className="h-3.5 w-3.5 fill-lime text-lime" />
+                          Rated
+                        </span>
+                      ) : (
+                        <button
+                          className="btn-secondary flex items-center gap-1"
+                          onClick={() => setRatingTripId(ratingTripId === trip._id ? null : trip._id)}
+                        >
+                          <Star className="h-4 w-4" />
+                          Rate Driver
+                        </button>
+                      ))}
                   </div>
                 </div>
+
+                {ratingTripId === trip._id &&
+                  (() => {
+                    const driverId = idOf(trip.driverId);
+                    if (!driverId) return null;
+                    return (
+                      <DriverRatingForm
+                        driverId={driverId}
+                        tripId={trip._id}
+                        onRated={() => {
+                          setRatedTripIds((prev) => new Set(prev).add(trip._id));
+                          setRatingTripId(null);
+                        }}
+                      />
+                    );
+                  })()}
 
                 {isReassigning && (
                   <div className="card flex flex-wrap items-end gap-3 bg-soft-gray">
