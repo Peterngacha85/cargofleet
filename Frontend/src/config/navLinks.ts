@@ -19,7 +19,8 @@ export type BadgeKey =
   | 'pendingVehicleCount'
   | 'scheduledTripCount'
   // Pending Approvals covers both pending drivers and pending managers combined.
-  | 'pendingApprovalsCount';
+  | 'pendingApprovalsCount'
+  | 'activePhotoCount';
 
 export interface SidebarLink {
   to: string;
@@ -53,7 +54,7 @@ export const linksByRole: Record<string, SidebarLink[]> = {
     { to: '/dashboard/managers', label: 'Managers', icon: UsersRound },
     { to: '/dashboard/vehicles', label: 'Vehicles', icon: Truck, badgeKey: 'pendingVehicleCount' },
     { to: '/dashboard/pending', label: 'Pending Approvals', icon: ClipboardCheck, badgeKey: 'pendingApprovalsCount' },
-    { to: '/dashboard/photos', label: 'Photos', icon: ImageIcon },
+    { to: '/dashboard/photos', label: 'Photos', icon: ImageIcon, badgeKey: 'activePhotoCount' },
     { to: '/dashboard/analytics', label: 'System Analytics', icon: BarChart3 },
     { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
   ],

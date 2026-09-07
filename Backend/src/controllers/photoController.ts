@@ -1,9 +1,11 @@
 import { Response } from 'express';
 import Photo from '../models/Photo';
+import Trip from '../models/Trip';
 import { uploadFile, deleteFile } from '../services/fileService';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { PHOTO_RETENTION_DAYS } from '../utils/constants';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { emitToAdmins } from '../websocket/emitters';
 import { logger } from '../utils/logger';
 
 export const listPhotos = async (req: AuthenticatedRequest, res: Response) => {
@@ -59,6 +61,14 @@ export const uploadPhoto = async (req: AuthenticatedRequest, res: Response) => {
         size: file.size,
         mimeType: file.mimetype,
       },
+    });
+
+    const trip = await Trip.findById(tripId).select('tripNumber');
+    emitToAdmins('newPhotoUpload', {
+      photoId: photo._id,
+      photoType,
+      tripId,
+      tripNumber: trip?.tripNumber,
     });
 
     return sendSuccess(res, 201, 'Photo uploaded', { photo });

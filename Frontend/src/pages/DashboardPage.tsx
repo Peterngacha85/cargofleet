@@ -58,6 +58,7 @@ export default function DashboardPage() {
   const incrementPendingDriverCount = useApprovalsStore((s) => s.incrementPendingDriverCount);
   const incrementPendingManagerCount = useApprovalsStore((s) => s.incrementPendingManagerCount);
   const incrementPendingVehicleCount = useApprovalsStore((s) => s.incrementPendingVehicleCount);
+  const incrementActivePhotoCount = useApprovalsStore((s) => s.incrementActivePhotoCount);
   const incrementScheduledTripCount = useApprovalsStore((s) => s.incrementScheduledTripCount);
   const decrementScheduledTripCount = useApprovalsStore((s) => s.decrementScheduledTripCount);
   const setPendingDriverCount = useApprovalsStore((s) => s.setPendingDriverCount);
@@ -215,6 +216,10 @@ export default function DashboardPage() {
       incrementPendingVehicleCount();
       push(`New vehicle added: ${payload.registrationNumber} (${payload.make} ${payload.model})`, 'info');
     };
+    const handleNewPhoto = (payload: { tripNumber?: string }) => {
+      incrementActivePhotoCount();
+      push(`New photo uploaded${payload.tripNumber ? ` for trip ${payload.tripNumber}` : ''}.`, 'info');
+    };
     const handleTripAssigned = (payload: { tripNumber: string; dropoffAddress: string }) => {
       incrementScheduledTripCount();
       push(`New trip assigned: ${payload.tripNumber} to ${payload.dropoffAddress}`, 'info');
@@ -242,6 +247,7 @@ export default function DashboardPage() {
     socket.on('newDriverRegistration', handleNewDriver);
     socket.on('newManagerRegistration', handleNewManager);
     socket.on('newVehicleRegistration', handleNewVehicle);
+    socket.on('newPhotoUpload', handleNewPhoto);
     socket.on('tripAssigned', handleTripAssigned);
     socket.on('tripUnassigned', handleTripUnassigned);
     socket.on('driverLocationUpdate', handleLocationUpdate);
@@ -252,6 +258,7 @@ export default function DashboardPage() {
       socket.off('newDriverRegistration', handleNewDriver);
       socket.off('newManagerRegistration', handleNewManager);
       socket.off('newVehicleRegistration', handleNewVehicle);
+      socket.off('newPhotoUpload', handleNewPhoto);
       socket.off('tripAssigned', handleTripAssigned);
       socket.off('tripUnassigned', handleTripUnassigned);
       socket.off('driverLocationUpdate', handleLocationUpdate);

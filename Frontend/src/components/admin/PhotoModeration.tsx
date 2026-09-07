@@ -3,6 +3,9 @@ import { Image as ImageIcon, Archive, Trash2 } from 'lucide-react';
 import { PhotoService } from '@/services/photoService';
 import { Photo, ArchiveStatus } from '@/types/photo';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useApprovalsStore } from '@/stores/approvalsStore';
+import { useAuth } from '@/hooks/useAuth';
+import { useSocket } from '@/hooks/useSocket';
 import { formatDate, statusLabel } from '@/utils/formatters';
 import Select from '@/components/shared/Select';
 import EmptyState from '@/components/shared/EmptyState';
@@ -25,6 +28,9 @@ export default function PhotoModeration() {
   const [statusFilter, setStatusFilter] = useState<ArchiveStatus | ''>('');
   const [actingOn, setActingOn] = useState<string | null>(null);
   const push = useNotificationStore((s) => s.push);
+  const setActivePhotoCount = useApprovalsStore((s) => s.setActivePhotoCount);
+  const { user } = useAuth();
+  const socketRef = useSocket('admin', { adminId: user?.id ?? '' }, !!user);
 
   const load = () => {
     PhotoService.list(statusFilter ? { archiveStatus: statusFilter } : {}).then((res) =>
@@ -32,10 +38,42 @@ export default function PhotoModeration() {
     );
   };
 
+  // Kept separate from `load()` above so the sidebar badge always reflects the true active
+  // count, not whatever status this page currently happens to be filtered to.
+  const refreshActiveCount = () => {
+    PhotoService.list({ archiveStatus: 'active' }).then((res) => setActivePhotoCount(res.data?.count ?? 0));
+  };
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  useEffect(() => {
+    refreshActiveCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Live update: a driver marking a delivery item delivered can upload a proof photo at any
+  // time, from anywhere - without this, this page (and the sidebar badge) only ever reflected
+  // photos that existed when it was last loaded/refreshed.
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    // Silent refresh only - DashboardPage's central listener already shows the "New photo
+    // uploaded" toast app-wide, so this page would otherwise double it up while it's open.
+    const handleNewPhoto = () => {
+      refreshActiveCount();
+      load();
+    };
+
+    socket.on('newPhotoUpload', handleNewPhoto);
+    return () => {
+      socket.off('newPhotoUpload', handleNewPhoto);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socketRef]);
 
   const driverName = (photo: Photo) =>
     typeof photo.driverId === 'string'
@@ -49,7 +87,10 @@ export default function PhotoModeration() {
     try {
       const response = await PhotoService.archive(photo._id);
       push(response.success ? 'Photo archived.' : response.message, response.success ? 'success' : 'error');
-      if (response.success) load();
+      if (response.success) {
+        load();
+        refreshActiveCount();
+      }
     } finally {
       setActingOn(null);
     }
@@ -62,7 +103,10 @@ export default function PhotoModeration() {
     try {
       const response = await PhotoService.approveDeletion(photo._id, reason);
       push(response.success ? 'Photo deleted.' : response.message, response.success ? 'success' : 'error');
-      if (response.success) load();
+      if (response.success) {
+        load();
+        refreshActiveCount();
+      }
     } finally {
       setActingOn(null);
     }

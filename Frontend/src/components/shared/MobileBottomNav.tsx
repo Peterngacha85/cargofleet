@@ -12,6 +12,7 @@ export default function MobileBottomNav() {
   const pendingManagerCount = useApprovalsStore((s) => s.pendingManagerCount);
   const pendingVehicleCount = useApprovalsStore((s) => s.pendingVehicleCount);
   const scheduledTripCount = useApprovalsStore((s) => s.scheduledTripCount);
+  const activePhotoCount = useApprovalsStore((s) => s.activePhotoCount);
   const links = (role && linksByRole[role]) || [];
 
   const badgeCounts: Record<BadgeKey, number> = {
@@ -19,6 +20,7 @@ export default function MobileBottomNav() {
     pendingManagerCount,
     pendingVehicleCount,
     scheduledTripCount,
+    activePhotoCount,
     pendingApprovalsCount: pendingDriverCount + pendingManagerCount,
   };
 
