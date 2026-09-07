@@ -37,6 +37,12 @@ export interface ITrip extends Document {
   reassignmentReason?: string;
   // Set by the destination manager when marking the trip received - proof the goods arrived.
   proofOfDeliveryPhotoUrl?: string;
+  // Opaque, unguessable tokens for the two public (no-login) pages a customer can open -
+  // generated once at trip creation. A manager/admin sees these on the trip itself (to build
+  // a shareable link); the public endpoints below are the only unauthenticated way to use one.
+  publicTrackingToken?: string;
+  publicRatingToken?: string;
+  ratingSubmittedAt?: Date;
   // Soft-deleted trips stay in the database (a "trip history") instead of being erased -
   // only a super admin can delete or restore one.
   isDeleted: boolean;
@@ -83,6 +89,9 @@ const tripSchema = new Schema<ITrip>(
     driverComment: { type: String },
     managerComment: { type: String },
     proofOfDeliveryPhotoUrl: { type: String },
+    publicTrackingToken: { type: String, index: true, sparse: true },
+    publicRatingToken: { type: String, index: true, sparse: true },
+    ratingSubmittedAt: { type: Date },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
     // String, not ObjectId ref: only a super admin (env-based id, not a User document) can

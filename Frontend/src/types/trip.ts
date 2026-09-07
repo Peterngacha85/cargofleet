@@ -45,6 +45,9 @@ export interface Trip {
   fare: number;
   reassignmentReason?: string;
   proofOfDeliveryPhotoUrl?: string;
+  publicTrackingToken?: string;
+  publicRatingToken?: string;
+  ratingSubmittedAt?: string;
   // Plain id array on create; populated with full delivery documents when listed/fetched.
   deliveryItems?: (string | Delivery)[];
   isDeleted?: boolean;

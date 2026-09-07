@@ -7,7 +7,9 @@ export interface IDriverRating extends Document {
   tripId: Types.ObjectId;
   rating: number;
   ratedBy: RatedByType;
-  ratedByUserId: Types.ObjectId;
+  // Optional: only meaningful for the authenticated manager-rating path. A customer rating via
+  // the public tokenized link has no logged-in user to attribute it to.
+  ratedByUserId?: Types.ObjectId;
   comment: string;
   positiveAspects?: string[];
   negativeAspects?: string[];
@@ -33,7 +35,7 @@ const driverRatingSchema = new Schema<IDriverRating>(
     tripId: { type: Schema.Types.ObjectId, ref: 'Trip', required: true, unique: true },
     rating: { type: Number, required: true, min: 1, max: 5 },
     ratedBy: { type: String, enum: ['manager', 'customer'], required: true },
-    ratedByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    ratedByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     comment: { type: String, default: '' },
     positiveAspects: [{ type: String }],
     negativeAspects: [{ type: String }],

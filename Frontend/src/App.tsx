@@ -9,6 +9,8 @@ import RegisterPage from '@/pages/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
+import TrackPage from '@/pages/TrackPage';
+import RatePage from '@/pages/RatePage';
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/admin/login" element={<SuperAdminLoginPage />} />
             <Route path="/register/:role" element={<RegisterPage />} />
+            <Route path="/track/:token" element={<TrackPage />} />
+            <Route path="/rate/:token" element={<RatePage />} />
             <Route
               path="/dashboard/*"
               element={

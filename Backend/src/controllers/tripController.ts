@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import crypto from 'crypto';
 import Trip from '../models/Trip';
 import Driver from '../models/Driver';
 import Vehicle from '../models/Vehicle';
@@ -117,6 +118,8 @@ export const createTrip = async (req: AuthenticatedRequest, res: Response) => {
       estimatedEndTime: new Date(estimatedEndTime),
       fare,
       status: 'scheduled',
+      publicTrackingToken: crypto.randomBytes(20).toString('hex'),
+      publicRatingToken: crypto.randomBytes(20).toString('hex'),
     });
 
     emitToDriver(driverId, 'tripAssigned', {

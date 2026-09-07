@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route, Camera, AlertTriangle, UserCog, Star, Plus, Trash2, Package } from 'lucide-react';
+import { MapPin, Radio, Route, Camera, AlertTriangle, UserCog, Star, Plus, Trash2, Package, Link2 } from 'lucide-react';
 import { TripService } from '@/services/tripService';
 import { DeliveryService } from '@/services/deliveryService';
 import { DriverService } from '@/services/driverService';
@@ -232,6 +232,20 @@ export default function TripManagement() {
   const handleShowPath = (trip: Trip) => {
     requestPath(trip._id);
     navigate('/dashboard/map');
+  };
+
+  const handleCopyLink = async (kind: 'track' | 'rate', token?: string) => {
+    if (!token) {
+      push('This trip has no share link (it was created before this feature existed).', 'warning');
+      return;
+    }
+    const url = `${window.location.origin}/${kind}/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      push(`${kind === 'track' ? 'Tracking' : 'Rating'} link copied.`, 'success');
+    } catch {
+      push(url, 'info');
+    }
   };
 
   const handleRequestSharing = async (trip: Trip) => {
@@ -943,6 +957,24 @@ export default function TripManagement() {
                       <button className="btn-secondary flex items-center gap-1" onClick={() => handleShowPath(trip)}>
                         <Route className="h-4 w-4" />
                         Show Path
+                      </button>
+                    )}
+                    {trip.status === 'in_transit' && (
+                      <button
+                        className="btn-secondary flex items-center gap-1"
+                        onClick={() => handleCopyLink('track', trip.publicTrackingToken)}
+                      >
+                        <Link2 className="h-4 w-4" />
+                        Copy Tracking Link
+                      </button>
+                    )}
+                    {trip.status === 'completed' && (
+                      <button
+                        className="btn-secondary flex items-center gap-1"
+                        onClick={() => handleCopyLink('rate', trip.publicRatingToken)}
+                      >
+                        <Link2 className="h-4 w-4" />
+                        Copy Rating Link
                       </button>
                     )}
                     {trip.status === 'completed' &&
