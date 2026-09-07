@@ -16,6 +16,28 @@ const markerIcon = L.divIcon({
   iconAnchor: [10, 10],
 });
 
+// Leaflet measures its container's size once, right at mount - on a plain page like this one
+// (no sidebar/nav already holding stable layout, unlike every other map in the app) that can
+// land before the surrounding flex layout has settled into its final width, leaving the map
+// sized for a narrower container than what's actually on screen. Forces a re-measure once
+// layout has had a moment to settle, and again on any later resize (e.g. a mobile browser's
+// address bar showing/hiding).
+function InvalidateSizeOnMount() {
+  const map = useMap();
+
+  useEffect(() => {
+    const fix = () => map.invalidateSize();
+    const timeout = setTimeout(fix, 100);
+    window.addEventListener('resize', fix);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('resize', fix);
+    };
+  }, [map]);
+
+  return null;
+}
+
 function RecenterOnMove({ latitude, longitude }: { latitude: number; longitude: number }) {
   const map = useMap();
   const hasCenteredRef = useRef(false);
@@ -98,6 +120,7 @@ export default function TrackPage() {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
+                  <InvalidateSizeOnMount />
                   <RecenterOnMove latitude={info.location.latitude} longitude={info.location.longitude} />
                   <Marker position={[info.location.latitude, info.location.longitude]} icon={markerIcon}>
                     <Popup>
@@ -111,6 +134,7 @@ export default function TrackPage() {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
+                  <InvalidateSizeOnMount />
                 </MapContainer>
               )}
             </div>
