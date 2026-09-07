@@ -76,7 +76,7 @@ export default function DriverRatingHistory({ driverId }: DriverRatingHistoryPro
               Timeliness: {statusLabel(r.timeliness)} · Delivery: {statusLabel(r.deliveryQuality)}
               {r.customerName && ` · ${r.customerName}`}
             </p>
-            {r.customerSignature && (
+            {r.customerSignature?.startsWith('http') && (
               <a
                 href={r.customerSignature}
                 target="_blank"
