@@ -82,6 +82,7 @@ export default function DashboardPage() {
   const activeTripId = useTripTrackingStore((s) => s.activeTripId);
   const setTrackedPosition = useTripTrackingStore((s) => s.setPosition);
   const startTrackedTrip = useTripTrackingStore((s) => s.startTrip);
+  const stopTrackedTrip = useTripTrackingStore((s) => s.stopTrip);
   const { position } = useLocation(role === 'driver' && !!activeTripId);
   // Selecting only the two actions (not driverLocations itself, via the useMap() wrapper)
   // keeps this component from re-rendering on every driver's GPS tick (~every 2s) no
@@ -244,6 +245,15 @@ export default function DashboardPage() {
       push(`${payload.requestedByRole === 'admin' ? 'Admin' : 'A manager'} asked you to resume sharing your location for trip ${payload.tripNumber}.`, 'warning');
     };
 
+    // A manager/admin marked this trip completed (or cancelled it) from their end, not this
+    // driver clicking "Stop Sharing" - stop tracking here too so a stray GPS tick doesn't
+    // immediately re-broadcast a location and bring the just-removed marker right back.
+    const handleTripEnded = (payload: { tripId: string; tripNumber: string; status: string }) => {
+      if (payload.tripId !== activeTripId) return;
+      stopTrackedTrip();
+      push(`Trip ${payload.tripNumber} was marked ${payload.status}. Location sharing stopped.`, 'info');
+    };
+
     socket.on('newDriverRegistration', handleNewDriver);
     socket.on('newManagerRegistration', handleNewManager);
     socket.on('newVehicleRegistration', handleNewVehicle);
@@ -253,6 +263,7 @@ export default function DashboardPage() {
     socket.on('driverLocationUpdate', handleLocationUpdate);
     socket.on('driverStoppedSharing', handleStoppedSharing);
     socket.on('locationSharingRequested', handleSharingRequested);
+    socket.on('tripEnded', handleTripEnded);
 
     return () => {
       socket.off('newDriverRegistration', handleNewDriver);
@@ -264,9 +275,10 @@ export default function DashboardPage() {
       socket.off('driverLocationUpdate', handleLocationUpdate);
       socket.off('driverStoppedSharing', handleStoppedSharing);
       socket.off('locationSharingRequested', handleSharingRequested);
+      socket.off('tripEnded', handleTripEnded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registrationSocketRef]);
+  }, [registrationSocketRef, activeTripId, stopTrackedTrip]);
 
   const showCompleteProfileModal =
     loaded && profile && profile.role !== 'admin' && !profile.profileComplete && !completionPromptDismissed;

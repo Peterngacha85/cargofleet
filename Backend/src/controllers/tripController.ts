@@ -318,6 +318,8 @@ export const updateTripStatus = async (req: AuthenticatedRequest, res: Response)
       }
     }
 
+    const wasInTransit = trip.status === 'in_transit';
+
     const update: Record<string, unknown> = { status };
     if (tripStartTime) update.tripStartTime = new Date(tripStartTime);
     if (tripEndTime) update.tripEndTime = new Date(tripEndTime);
@@ -327,6 +329,16 @@ export const updateTripStatus = async (req: AuthenticatedRequest, res: Response)
 
     emitToManagers('tripStatusChanged', { tripId: req.params.tripId, status });
     emitToAdmins('tripStatusChanged', { tripId: req.params.tripId, status });
+
+    // A trip pulled out of in_transit (e.g. cancelled) leaves the driver's marker frozen on
+    // every live map otherwise - tell viewers to drop it now, and the driver's own app to stop
+    // sending further location pings that would just bring it right back.
+    if (wasInTransit && status !== 'in_transit') {
+      const driverIdStr = trip.driverId.toString();
+      emitToManagers('driverStoppedSharing', { driverId: driverIdStr });
+      emitToAdmins('driverStoppedSharing', { driverId: driverIdStr });
+      emitToDriver(driverIdStr, 'tripEnded', { tripId: trip._id, tripNumber: trip.tripNumber, status });
+    }
 
     return sendSuccess(res, 200, 'Trip status updated', { trip: updatedTrip });
   } catch (error) {
@@ -369,6 +381,13 @@ export const completeTripWithPhoto = async (req: AuthenticatedRequest, res: Resp
 
     emitToManagers('tripStatusChanged', { tripId: trip._id, status: 'completed' });
     emitToAdmins('tripStatusChanged', { tripId: trip._id, status: 'completed' });
+
+    // Same reasoning as the cancellation path in updateTripStatus - a completed trip's marker
+    // should disappear from every live map immediately, not linger at its last known position.
+    const driverIdStr = trip.driverId.toString();
+    emitToManagers('driverStoppedSharing', { driverId: driverIdStr });
+    emitToAdmins('driverStoppedSharing', { driverId: driverIdStr });
+    emitToDriver(driverIdStr, 'tripEnded', { tripId: trip._id, tripNumber: trip.tripNumber, status: 'completed' });
 
     return sendSuccess(res, 200, 'Trip marked as received', { trip });
   } catch (error) {
