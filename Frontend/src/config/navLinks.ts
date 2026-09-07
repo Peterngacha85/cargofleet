@@ -10,6 +10,7 @@ import {
   Map,
   ClipboardCheck,
   BarChart3,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export type BadgeKey =
@@ -52,6 +53,7 @@ export const linksByRole: Record<string, SidebarLink[]> = {
     { to: '/dashboard/managers', label: 'Managers', icon: UsersRound },
     { to: '/dashboard/vehicles', label: 'Vehicles', icon: Truck, badgeKey: 'pendingVehicleCount' },
     { to: '/dashboard/pending', label: 'Pending Approvals', icon: ClipboardCheck, badgeKey: 'pendingApprovalsCount' },
+    { to: '/dashboard/photos', label: 'Photos', icon: ImageIcon },
     { to: '/dashboard/analytics', label: 'System Analytics', icon: BarChart3 },
     { to: '/dashboard/profile', label: 'My Profile', icon: UserCircle },
   ],

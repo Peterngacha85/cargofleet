@@ -6,6 +6,29 @@ import { PHOTO_RETENTION_DAYS } from '../utils/constants';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 
+export const listPhotos = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { archiveStatus, tripId } = req.query;
+    const filter: Record<string, unknown> = {};
+    if (archiveStatus) filter.archiveStatus = archiveStatus;
+    if (tripId) filter.tripId = tripId;
+
+    const photos = await Photo.find(filter)
+      .populate({
+        path: 'driverId',
+        select: 'userId',
+        populate: { path: 'userId', select: 'firstName lastName' },
+      })
+      .populate('tripId', 'tripNumber')
+      .sort({ uploadedAt: -1 });
+
+    return sendSuccess(res, 200, 'Photos retrieved', { photos, count: photos.length });
+  } catch (error) {
+    logger.error('List photos error', { error });
+    return sendError(res, 500, 'Failed to retrieve photos');
+  }
+};
+
 export const uploadPhoto = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const file = req.file;

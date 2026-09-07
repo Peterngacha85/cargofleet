@@ -42,6 +42,7 @@ import ManagerDirectory from '@/components/admin/ManagerDirectory';
 import UserManagement from '@/components/admin/UserManagement';
 import SystemAnalytics from '@/components/admin/SystemAnalytics';
 import VehicleDirectory from '@/components/admin/VehicleDirectory';
+import PhotoModeration from '@/components/admin/PhotoModeration';
 import MyProfilePage from './MyProfilePage';
 
 function RoleHome() {
@@ -295,6 +296,7 @@ export default function DashboardPage() {
                 <Route path="managers" element={<ManagerDirectory />} />
                 <Route path="vehicles" element={<VehicleDirectory />} />
                 <Route path="pending" element={<UserManagement />} />
+                <Route path="photos" element={<PhotoModeration />} />
                 <Route path="analytics" element={<SystemAnalytics />} />
               </>
             )}
