@@ -3,6 +3,11 @@ import { ApiResponse } from '@/types/api';
 import { CreateTripPayload, Trip, TripStatus } from '@/types/trip';
 
 export const TripService = {
+  async get(tripId: string) {
+    const { data } = await api.get<ApiResponse<{ trip: Trip }>>(`/trips/${tripId}`);
+    return data;
+  },
+
   async list(params: {
     driverId?: string;
     branchId?: string;

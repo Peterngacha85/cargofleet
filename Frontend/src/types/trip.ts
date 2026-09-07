@@ -10,7 +10,7 @@ export interface TripLocation {
 
 export interface PopulatedTripDriver {
   _id: string;
-  userId: { firstName: string; lastName: string };
+  userId: { firstName: string; lastName: string; profilePhoto?: string };
 }
 
 export interface PopulatedTripVehicle {

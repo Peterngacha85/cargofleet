@@ -98,11 +98,14 @@ function TripPath() {
   return <Polyline positions={positions} pathOptions={{ color: '#3B82F6', weight: 4, opacity: 0.8 }} />;
 }
 
-export type MarkerColor = 'green' | 'red';
+// blue marks a driver from another branch whose current trip is heading to the viewer's own
+// branch - "incoming", same blue as the recorded-route polyline drawn by TripPath below.
+export type MarkerColor = 'green' | 'red' | 'blue';
 
 const markerHex: Record<MarkerColor, string> = {
   green: '#A3E635',
   red: '#EF4444',
+  blue: '#3B82F6',
 };
 
 // Material Design's "directions_car" glyph (viewBox 0 0 24 24) - simple enough to read at
@@ -126,6 +129,12 @@ const driverIcons: Record<MarkerColor, L.DivIcon> = {
   red: L.divIcon({
     className: '',
     html: vehicleIconHtml(markerHex.red),
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  }),
+  blue: L.divIcon({
+    className: '',
+    html: vehicleIconHtml(markerHex.blue),
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   }),
@@ -174,9 +183,6 @@ export default function MapComponent({
               speed={m.speed}
               lastUpdated={m.timestamp}
               tripId={m.tripId}
-              tripNumber={m.tripNumber}
-              dropoffAddress={m.dropoffAddress}
-              tripStatus={m.tripStatus}
             />
           </Popup>
         </Marker>

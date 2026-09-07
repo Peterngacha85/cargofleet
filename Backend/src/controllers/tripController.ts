@@ -223,7 +223,16 @@ export const reassignTripHandler = async (req: AuthenticatedRequest, res: Respon
 
 export const getTrip = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const trip = await Trip.findById(req.params.tripId).populate('deliveryItems');
+    const trip = await Trip.findById(req.params.tripId)
+      .populate({
+        path: 'driverId',
+        select: 'userId',
+        populate: { path: 'userId', select: 'firstName lastName profilePhoto' },
+      })
+      .populate('vehicleId', 'registrationNumber make model')
+      .populate('branchId', 'name')
+      .populate('destinationBranchId', 'name')
+      .populate('deliveryItems');
     if (!trip) {
       return sendError(res, 404, 'Trip not found');
     }
@@ -256,7 +265,7 @@ export const listTrips = async (req: AuthenticatedRequest, res: Response) => {
       .populate({
         path: 'driverId',
         select: 'userId',
-        populate: { path: 'userId', select: 'firstName lastName' },
+        populate: { path: 'userId', select: 'firstName lastName profilePhoto' },
       })
       .populate('vehicleId', 'registrationNumber make model')
       .populate('branchId', 'name')
