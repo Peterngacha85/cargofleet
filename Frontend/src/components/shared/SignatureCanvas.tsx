@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 interface SignatureCanvasProps {
   // Fires whenever the "has something been drawn" state changes - the caller decides what
-  // that means (e.g. enabling a Confirm button), this component doesn't persist the image.
+  // that means (e.g. enabling a Confirm button).
   onChange?: (hasSignature: boolean) => void;
 }
 
-export default function SignatureCanvas({ onChange }: SignatureCanvasProps) {
+export interface SignatureCanvasHandle {
+  // null if nothing's been drawn yet - the caller decides whether that's an error or just
+  // means "no signature was given".
+  getDataUrl: () => string | null;
+}
+
+const SignatureCanvas = forwardRef<SignatureCanvasHandle, SignatureCanvasProps>(function SignatureCanvas(
+  { onChange },
+  ref
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const [hasSignature, setHasSignature] = useState(false);
@@ -27,6 +36,10 @@ export default function SignatureCanvas({ onChange }: SignatureCanvasProps) {
       ctx.strokeStyle = '#1F2937';
     }
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    getDataUrl: () => (hasSignature ? canvasRef.current?.toDataURL('image/png') ?? null : null),
+  }));
 
   const getPoint = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -85,4 +98,6 @@ export default function SignatureCanvas({ onChange }: SignatureCanvasProps) {
       </div>
     </div>
   );
-}
+});
+
+export default SignatureCanvas;

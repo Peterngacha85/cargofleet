@@ -74,7 +74,18 @@ export default function DriverRatingHistory({ driverId }: DriverRatingHistoryPro
             )}
             <p className="mt-1 text-xs text-gray-400">
               Timeliness: {statusLabel(r.timeliness)} · Delivery: {statusLabel(r.deliveryQuality)}
+              {r.customerName && ` · ${r.customerName}`}
             </p>
+            {r.customerSignature && (
+              <a
+                href={r.customerSignature}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block rounded-md border border-gray-200 p-1"
+              >
+                <img src={r.customerSignature} alt="Customer signature" className="h-12 w-auto" />
+              </a>
+            )}
           </li>
         ))}
       </ul>

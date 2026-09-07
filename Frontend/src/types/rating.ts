@@ -14,6 +14,7 @@ export interface DriverRating {
   positiveAspects?: string[];
   negativeAspects?: string[];
   customerName?: string;
+  customerSignature?: string;
   createdAt: string;
 }
 

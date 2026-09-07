@@ -22,7 +22,9 @@ export const PublicService = {
       customerPhone?: string;
       positiveAspects?: string[];
       negativeAspects?: string[];
-      signed?: boolean;
+      // A data: URL (image/png) straight from the canvas - the backend uploads it to
+      // Cloudinary itself and stores the resulting URL.
+      signatureDataUrl?: string;
     }
   ) {
     const { data } = await api.post<ApiResponse<Record<string, never>>>(`/public/rate/${token}`, payload);

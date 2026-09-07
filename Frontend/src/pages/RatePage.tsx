@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { PublicService } from '@/services/publicService';
 import { PublicRatingInfo } from '@/types/public';
-import SignatureCanvas from '@/components/shared/SignatureCanvas';
+import SignatureCanvas, { SignatureCanvasHandle } from '@/components/shared/SignatureCanvas';
 
 const positiveTags = ['On time', 'Careful with cargo', 'Professional', 'Good communication', 'Friendly'];
 const negativeTags = ['Late', 'Damaged goods', 'Rude', 'Poor communication', 'Reckless driving'];
@@ -22,6 +22,7 @@ export default function RatePage() {
   const [positiveAspects, setPositiveAspects] = useState<string[]>([]);
   const [negativeAspects, setNegativeAspects] = useState<string[]>([]);
   const [hasSignature, setHasSignature] = useState(false);
+  const signatureRef = useRef<SignatureCanvasHandle>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export default function RatePage() {
         customerName: customerName || undefined,
         positiveAspects,
         negativeAspects,
-        signed: hasSignature,
+        signatureDataUrl: hasSignature ? signatureRef.current?.getDataUrl() ?? undefined : undefined,
       });
       if (response.success) {
         setSubmitted(true);
@@ -162,7 +163,7 @@ export default function RatePage() {
 
             <div>
               <p className="mb-1 text-sm font-medium text-charcoal">Signature (optional)</p>
-              <SignatureCanvas onChange={setHasSignature} />
+              <SignatureCanvas ref={signatureRef} onChange={setHasSignature} />
             </div>
 
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}

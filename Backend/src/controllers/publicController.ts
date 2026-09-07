@@ -4,6 +4,7 @@ import Driver from '../models/Driver';
 import DriverRating from '../models/DriverRating';
 import { getLatestLocationForDriver } from '../services/locationService';
 import { computeRatingImpact, recalculateDriverAverageRating } from '../services/ratingService';
+import { uploadFile } from '../services/fileService';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
 
@@ -66,7 +67,8 @@ export const getPublicRatingInfo = async (req: Request, res: Response) => {
 // ratedByUserId from, and the trip/already-rated checks are keyed on the token, not a role.
 export const submitPublicRating = async (req: Request, res: Response) => {
   try {
-    const { rating, comment, customerName, customerPhone, positiveAspects, negativeAspects, signed } = req.body;
+    const { rating, comment, customerName, customerPhone, positiveAspects, negativeAspects, signatureDataUrl } =
+      req.body;
 
     if (!rating) {
       return sendError(res, 400, 'rating is required');
@@ -94,6 +96,15 @@ export const submitPublicRating = async (req: Request, res: Response) => {
     const quality = numericRating >= 4 ? 'excellent' : numericRating >= 3 ? 'good' : 'poor';
     const ratingImpact = computeRatingImpact(numericRating, trip.fare);
 
+    let customerSignature: string | undefined;
+    if (typeof signatureDataUrl === 'string' && signatureDataUrl.startsWith('data:image/')) {
+      const base64 = signatureDataUrl.split(',')[1];
+      if (base64) {
+        const { url } = await uploadFile(Buffer.from(base64, 'base64'), 'signature.png', 'image/png', 'signatures');
+        customerSignature = url;
+      }
+    }
+
     await DriverRating.create({
       driverId: trip.driverId,
       tripId: trip._id,
@@ -107,7 +118,7 @@ export const submitPublicRating = async (req: Request, res: Response) => {
       negativeAspects,
       customerName,
       customerPhone,
-      customerSignature: signed ? 'signed' : undefined,
+      customerSignature,
       ratingImpact,
     });
 
