@@ -3,6 +3,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { DriverService } from '@/services/driverService';
 import { Driver, Branch, DriverUserSummary } from '@/types/driver';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { promptDialog } from '@/stores/dialogStore';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
@@ -60,7 +61,7 @@ export default function DriverApprovalList() {
   };
 
   const handleReject = async (driverId: string) => {
-    const reason = window.prompt('Reason for rejection?') ?? 'Not specified';
+    const reason = (await promptDialog({ title: 'Reason for rejection' })) ?? 'Not specified';
     const response = await DriverService.reject(driverId, reason);
     push(response.message, response.success ? 'success' : 'error');
     if (response.success) load();

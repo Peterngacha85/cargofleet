@@ -9,6 +9,7 @@ import { VehicleService } from '@/services/vehicleService';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileStore } from '@/stores/profileStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { promptDialog } from '@/stores/dialogStore';
 import { Vehicle, VehicleType, FuelType } from '@/types/vehicle';
 import { statusLabel } from '@/utils/formatters';
 
@@ -132,7 +133,7 @@ export default function VehicleDetailModal({ vehicle, onClose, onUpdated }: Vehi
   };
 
   const handleReject = async () => {
-    const reason = window.prompt('Reason for rejection?') ?? 'Not specified';
+    const reason = (await promptDialog({ title: 'Reason for rejection' })) ?? 'Not specified';
     setRejecting(true);
     try {
       const response = await VehicleService.reject(vehicle._id, reason);

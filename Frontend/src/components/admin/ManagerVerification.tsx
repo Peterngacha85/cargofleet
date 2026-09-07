@@ -4,6 +4,7 @@ import { api } from '@/services/api';
 import { DriverService } from '@/services/driverService';
 import { Branch } from '@/types/driver';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { promptDialog } from '@/stores/dialogStore';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
@@ -66,7 +67,7 @@ export default function ManagerVerification() {
   };
 
   const handleReject = async (managerId: string) => {
-    const reason = window.prompt('Reason for rejection?') ?? 'Not specified';
+    const reason = (await promptDialog({ title: 'Reason for rejection' })) ?? 'Not specified';
     const { data } = await api.post(`/managers/${managerId}/reject`, { rejectionReason: reason });
     push(data.message, data.success ? 'success' : 'error');
     if (data.success) load();

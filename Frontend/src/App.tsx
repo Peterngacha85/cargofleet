@@ -3,6 +3,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import ProtectedRoute from '@/components/shared/ProtectedRoute';
 import NotificationCenter from '@/components/shared/NotificationCenter';
+import DialogHost from '@/components/shared/DialogHost';
 import LoginPage from '@/pages/LoginPage';
 import SuperAdminLoginPage from '@/pages/SuperAdminLoginPage';
 import RegisterPage from '@/pages/RegisterPage';
@@ -37,6 +38,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
         <NotificationCenter />
+        <DialogHost />
       </ErrorBoundary>
     </GoogleOAuthProvider>
   );

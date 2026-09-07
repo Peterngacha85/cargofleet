@@ -16,6 +16,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useMapPathStore } from '@/stores/mapPathStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { confirmDialog } from '@/stores/dialogStore';
 import { statusLabel, formatDate, timeAgo } from '@/utils/formatters';
 import FieldLabel from '@/components/shared/FieldLabel';
 import SearchInput from '@/components/shared/SearchInput';
@@ -218,9 +219,11 @@ export default function AllTripsList() {
   };
 
   const handleDelete = async (trip: Trip) => {
-    if (!window.confirm(`Delete trip ${trip.tripNumber}? It will be kept in Trip History and can be restored.`)) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      message: `Delete trip ${trip.tripNumber}? It will be kept in Trip History and can be restored.`,
+      danger: true,
+    });
+    if (!confirmed) return;
     setActingOn(trip._id);
     try {
       const response = await TripService.remove(trip._id);

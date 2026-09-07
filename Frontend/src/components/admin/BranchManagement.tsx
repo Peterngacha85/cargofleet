@@ -4,6 +4,7 @@ import { DriverService } from '@/services/driverService';
 import { api } from '@/services/api';
 import { Branch } from '@/types/driver';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { confirmDialog } from '@/stores/dialogStore';
 import { geocodeAddress } from '@/utils/geocode';
 import FieldLabel from '@/components/shared/FieldLabel';
 
@@ -61,7 +62,7 @@ export default function BranchManagement() {
   };
 
   const handleDelete = async (branchId: string) => {
-    if (!window.confirm('Delete this branch?')) return;
+    if (!(await confirmDialog({ message: 'Delete this branch?', danger: true }))) return;
     const { data } = await api.delete(`/branches/${branchId}`);
     push(data.message, data.success ? 'success' : 'error');
     if (data.success) load();

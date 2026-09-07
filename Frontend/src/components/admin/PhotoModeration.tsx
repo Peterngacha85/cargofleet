@@ -3,6 +3,7 @@ import { Image as ImageIcon, Archive, Trash2 } from 'lucide-react';
 import { PhotoService } from '@/services/photoService';
 import { Photo, ArchiveStatus } from '@/types/photo';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { confirmDialog, promptDialog } from '@/stores/dialogStore';
 import { useApprovalsStore } from '@/stores/approvalsStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
@@ -97,8 +98,12 @@ export default function PhotoModeration() {
   };
 
   const handleApproveDeletion = async (photo: Photo) => {
-    if (!window.confirm('Permanently delete this photo? This cannot be undone.')) return;
-    const reason = window.prompt('Reason for deletion (optional)') ?? undefined;
+    const confirmed = await confirmDialog({
+      message: 'Permanently delete this photo? This cannot be undone.',
+      danger: true,
+    });
+    if (!confirmed) return;
+    const reason = (await promptDialog({ title: 'Reason for deletion', placeholder: 'Optional' })) ?? undefined;
     setActingOn(photo._id);
     try {
       const response = await PhotoService.approveDeletion(photo._id, reason);
