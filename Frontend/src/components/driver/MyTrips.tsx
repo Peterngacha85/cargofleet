@@ -14,6 +14,7 @@ import { formatCurrency, formatDate, statusLabel } from '@/utils/formatters';
 import FieldLabel from '@/components/shared/FieldLabel';
 import Select from '@/components/shared/Select';
 import { FuelPaymentMethod } from '@/types/fuelLog';
+import CargoItemsPanel from './CargoItemsPanel';
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-gray-200 text-gray-700',
@@ -325,6 +326,10 @@ export default function MyTrips() {
                 Cancel
               </button>
             </div>
+          )}
+
+          {trip.status === 'in_transit' && driverId && (
+            <CargoItemsPanel trip={trip} driverId={driverId} onUpdated={load} />
           )}
         </li>
       ))}

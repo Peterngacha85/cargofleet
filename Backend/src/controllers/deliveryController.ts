@@ -1,7 +1,9 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Delivery from '../models/Delivery';
 import Trip from '../models/Trip';
+import Driver from '../models/Driver';
 import { sendSuccess, sendError } from '../utils/apiResponse';
+import { AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 
 const generateDeliveryNumber = async (): Promise<string> => {
@@ -10,7 +12,7 @@ const generateDeliveryNumber = async (): Promise<string> => {
   return `DEL-${year}-${String(count + 1).padStart(4, '0')}`;
 };
 
-export const createDelivery = async (req: Request, res: Response) => {
+export const createDelivery = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const {
       tripId,
@@ -59,7 +61,7 @@ export const createDelivery = async (req: Request, res: Response) => {
   }
 };
 
-export const getDelivery = async (req: Request, res: Response) => {
+export const getDelivery = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const delivery = await Delivery.findById(req.params.deliveryId);
     if (!delivery) {
@@ -72,23 +74,36 @@ export const getDelivery = async (req: Request, res: Response) => {
   }
 };
 
-export const updateDeliveryStatus = async (req: Request, res: Response) => {
+export const updateDeliveryStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { status, failureReason, finalCondition } = req.body;
+    const { status, failureReason, finalCondition, proofOfDeliveryPhoto, signatureProvided } = req.body;
 
     if (!status) {
       return sendError(res, 400, 'status is required');
     }
 
-    const update: Record<string, unknown> = { status };
-    if (status === 'delivered') update.deliveredAt = new Date();
-    if (failureReason) update.failureReason = failureReason;
-    if (finalCondition) update['condition.final'] = finalCondition;
-
-    const delivery = await Delivery.findByIdAndUpdate(req.params.deliveryId, update, { new: true });
+    const delivery = await Delivery.findById(req.params.deliveryId);
     if (!delivery) {
       return sendError(res, 404, 'Delivery not found');
     }
+
+    // A driver may only update items on their own trip - manager/admin aren't scoped this way
+    // since they legitimately need to act on any delivery.
+    if (req.user!.role === 'driver') {
+      const driver = await Driver.findOne({ userId: req.user!.id });
+      const trip = await Trip.findById(delivery.tripId).select('driverId');
+      if (!driver || !trip || trip.driverId.toString() !== driver._id.toString()) {
+        return sendError(res, 403, 'You are not authorized to update this delivery');
+      }
+    }
+
+    delivery.status = status;
+    if (status === 'delivered') delivery.deliveredAt = new Date();
+    if (failureReason) delivery.failureReason = failureReason;
+    if (finalCondition) delivery.condition.final = finalCondition;
+    if (proofOfDeliveryPhoto) delivery.proofOfDeliveryPhoto = proofOfDeliveryPhoto;
+    if (signatureProvided !== undefined) delivery.signatureProvided = !!signatureProvided;
+    await delivery.save();
 
     return sendSuccess(res, 200, 'Delivery status updated', { delivery });
   } catch (error) {

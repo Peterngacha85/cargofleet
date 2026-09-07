@@ -270,6 +270,7 @@ export const listTrips = async (req: AuthenticatedRequest, res: Response) => {
       .populate('vehicleId', 'registrationNumber make model')
       .populate('branchId', 'name')
       .populate('destinationBranchId', 'name')
+      .populate('deliveryItems')
       .sort({ createdAt: -1 });
 
     const nameMap = await resolveApproverNames(trips.map((t) => t.deletedBy));

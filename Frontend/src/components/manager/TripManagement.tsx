@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Radio, Route, Camera, AlertTriangle, UserCog, Star } from 'lucide-react';
+import { MapPin, Radio, Route, Camera, AlertTriangle, UserCog, Star, Plus, Trash2, Package } from 'lucide-react';
 import { TripService } from '@/services/tripService';
+import { DeliveryService } from '@/services/deliveryService';
 import { DriverService } from '@/services/driverService';
 import { VehicleService } from '@/services/vehicleService';
 import { requestLocationSharing } from '@/services/socketService';
 import { LocationService } from '@/services/locationService';
 import { Trip, TripStatus } from '@/types/trip';
+import { Delivery } from '@/types/delivery';
 import { Driver, DriverUserSummary } from '@/types/driver';
 import { Vehicle } from '@/types/vehicle';
 import { Branch } from '@/types/driver';
@@ -63,12 +65,23 @@ const emptyForm = {
   fare: '',
 };
 
+interface CargoItemForm {
+  description: string;
+  quantity: string;
+  weight: string;
+  receiverName: string;
+  receiverPhone: string;
+  deliveryAddress: string;
+  customerSignatureRequired: boolean;
+}
+
 export default function TripManagement() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [cargoItems, setCargoItems] = useState<CargoItemForm[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [geocoding, setGeocoding] = useState<{ pickup: boolean; dropoff: boolean }>({
     pickup: false,
@@ -172,6 +185,15 @@ export default function TripManagement() {
 
   const tripBranchName = (branch?: string | { _id: string; name: string }) =>
     !branch ? '—' : typeof branch === 'string' ? branch : branch.name;
+
+  // Only counts once deliveryItems is populated with full Delivery docs (list/get responses) -
+  // a freshly-created trip in local state before its next refetch just shows nothing here.
+  const cargoSummary = (trip: Trip) => {
+    const items = (trip.deliveryItems ?? []).filter((item): item is Delivery => typeof item !== 'string');
+    if (items.length === 0) return null;
+    const delivered = items.filter((item) => item.status === 'delivered').length;
+    return `${items.length} item${items.length === 1 ? '' : 's'} · ${delivered} delivered`;
+  };
 
   const myBranchName = branches.find((b) => b._id === branchId)?.name ?? 'your branch';
 
@@ -310,6 +332,31 @@ export default function TripManagement() {
     }
   };
 
+  // Prefilled from the trip's dropoff details as a starting point (most trips carry one item
+  // going to the same place) - each row stays independently editable for a multi-stop trip.
+  const addCargoItem = () => {
+    setCargoItems((items) => [
+      ...items,
+      {
+        description: '',
+        quantity: '1',
+        weight: '',
+        receiverName: form.dropoffContactName,
+        receiverPhone: form.dropoffContactPhone,
+        deliveryAddress: form.dropoffAddress,
+        customerSignatureRequired: false,
+      },
+    ]);
+  };
+
+  const updateCargoItem = (index: number, patch: Partial<CargoItemForm>) => {
+    setCargoItems((items) => items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  };
+
+  const removeCargoItem = (index: number) => {
+    setCargoItems((items) => items.filter((_, i) => i !== index));
+  };
+
   const handleCreate = async () => {
     if (!branchId) return;
     const {
@@ -346,6 +393,14 @@ export default function TripManagement() {
       return;
     }
 
+    const incompleteItem = cargoItems.find(
+      (item) => !item.description || !item.quantity || !item.weight || !item.receiverName || !item.receiverPhone || !item.deliveryAddress
+    );
+    if (incompleteItem) {
+      push('Fill in every field on each cargo item, or remove the empty one.', 'warning');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await TripService.create({
@@ -370,9 +425,35 @@ export default function TripManagement() {
         estimatedEndTime: new Date(estimatedEndTime).toISOString(),
         fare: Number(fare),
       });
+
+      const newTripId = response.data?.trip._id;
+      if (response.success && newTripId && cargoItems.length > 0) {
+        const results = await Promise.all(
+          cargoItems.map((item) =>
+            DeliveryService.create({
+              tripId: newTripId,
+              description: item.description,
+              quantity: Number(item.quantity),
+              weight: Number(item.weight),
+              receiverName: item.receiverName,
+              receiverPhone: item.receiverPhone,
+              deliveryAddress: item.deliveryAddress,
+              latitude: Number(dropoffLat),
+              longitude: Number(dropoffLng),
+              customerSignatureRequired: item.customerSignatureRequired,
+            })
+          )
+        );
+        const failed = results.filter((r) => !r.success).length;
+        if (failed > 0) {
+          push(`Trip created, but ${failed} of ${cargoItems.length} cargo item(s) failed to save.`, 'warning');
+        }
+      }
+
       push(response.success ? 'Trip created' : response.message, response.success ? 'success' : 'error');
       if (response.success) {
         setForm(emptyForm);
+        setCargoItems([]);
         loadTrips();
       }
     } catch (error: any) {
@@ -617,6 +698,101 @@ export default function TripManagement() {
           </div>
         </div>
 
+        <div className="mt-5">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold text-charcoal">Cargo Items (optional)</p>
+            <button type="button" className="btn-secondary flex items-center gap-1 !py-1 text-xs" onClick={addCargoItem}>
+              <Plus className="h-3.5 w-3.5" />
+              Add Item
+            </button>
+          </div>
+          <p className="mb-2 text-xs text-gray-400">
+            Break the trip down into individual pieces of cargo the driver marks delivered one by one - useful for
+            multiple items or receivers. Leave empty for a single undifferentiated shipment.
+          </p>
+          {cargoItems.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {cargoItems.map((item, index) => (
+                <div key={index} className="card flex flex-col gap-3 bg-soft-gray">
+                  <div className="flex items-center justify-between">
+                    <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+                      <Package className="h-3.5 w-3.5" />
+                      Item {index + 1}
+                    </p>
+                    <button type="button" onClick={() => removeCargoItem(index)} aria-label="Remove item">
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <FieldLabel required>Description</FieldLabel>
+                      <input
+                        className="input-field"
+                        placeholder="e.g. 3 bags of cement"
+                        value={item.description}
+                        onChange={(e) => updateCargoItem(index, { description: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <FieldLabel required>Quantity</FieldLabel>
+                        <input
+                          type="number"
+                          className="input-field"
+                          value={item.quantity}
+                          onChange={(e) => updateCargoItem(index, { quantity: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel required>Weight (kg)</FieldLabel>
+                        <input
+                          type="number"
+                          className="input-field"
+                          value={item.weight}
+                          onChange={(e) => updateCargoItem(index, { weight: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <FieldLabel required>Receiver Name</FieldLabel>
+                      <input
+                        className="input-field"
+                        value={item.receiverName}
+                        onChange={(e) => updateCargoItem(index, { receiverName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel required>Receiver Phone</FieldLabel>
+                      <input
+                        className="input-field"
+                        placeholder="+254712345678"
+                        value={item.receiverPhone}
+                        onChange={(e) => updateCargoItem(index, { receiverPhone: e.target.value })}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <FieldLabel required>Delivery Address</FieldLabel>
+                      <input
+                        className="input-field"
+                        value={item.deliveryAddress}
+                        onChange={(e) => updateCargoItem(index, { deliveryAddress: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={item.customerSignatureRequired}
+                      onChange={(e) => updateCargoItem(index, { customerSignatureRequired: e.target.checked })}
+                    />
+                    Require the customer's signature on delivery
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button className="btn-primary mt-4" onClick={handleCreate} disabled={submitting}>
           {submitting ? 'Creating…' : 'Create Trip'}
         </button>
@@ -699,6 +875,7 @@ export default function TripManagement() {
                       {crossBranch &&
                         ` · ${tripBranchName(trip.branchId)} → ${tripBranchName(trip.destinationBranchId)}`}
                       {trip.status === 'scheduled' && !isStale && ` · Scheduled ${timeAgo(trip.createdAt)}`}
+                      {cargoSummary(trip) && ` · ${cargoSummary(trip)}`}
                     </p>
                     {trip.reassignmentReason && (
                       <p className="text-xs text-gray-400">Reassigned - {trip.reassignmentReason}</p>

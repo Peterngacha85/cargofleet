@@ -7,6 +7,7 @@ import { VehicleService } from '@/services/vehicleService';
 import { requestLocationSharing } from '@/services/socketService';
 import { LocationService } from '@/services/locationService';
 import { Trip, TripStatus } from '@/types/trip';
+import { Delivery } from '@/types/delivery';
 import { Branch, Driver, DriverUserSummary } from '@/types/driver';
 import { Vehicle } from '@/types/vehicle';
 import { useAuth } from '@/hooks/useAuth';
@@ -142,6 +143,13 @@ export default function AllTripsList() {
 
   const tripBranchName = (branch?: string | { _id: string; name: string }) =>
     !branch ? '—' : typeof branch === 'string' ? branch : branch.name;
+
+  const cargoSummary = (trip: Trip) => {
+    const items = (trip.deliveryItems ?? []).filter((item): item is Delivery => typeof item !== 'string');
+    if (items.length === 0) return null;
+    const delivered = items.filter((item) => item.status === 'delivered').length;
+    return `${items.length} item${items.length === 1 ? '' : 's'} · ${delivered} delivered`;
+  };
 
   const handleShowOnMap = (trip: Trip) => {
     const driverId = idOf(trip.driverId);
@@ -333,6 +341,7 @@ export default function AllTripsList() {
                   <p className="text-xs text-gray-400">
                     {tripDriverName(trip)} · {tripVehicleLabel(trip)} · {tripBranchName(trip.branchId)} →{' '}
                     {tripBranchName(trip.destinationBranchId)}
+                    {cargoSummary(trip) && ` · ${cargoSummary(trip)}`}
                   </p>
                   {trip.reassignmentReason && (
                     <p className="text-xs text-gray-400">Reassigned - {trip.reassignmentReason}</p>

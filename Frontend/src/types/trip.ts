@@ -1,3 +1,5 @@
+import { Delivery } from './delivery';
+
 export type TripStatus = 'scheduled' | 'in_transit' | 'completed' | 'cancelled';
 
 export interface TripLocation {
@@ -43,6 +45,8 @@ export interface Trip {
   fare: number;
   reassignmentReason?: string;
   proofOfDeliveryPhotoUrl?: string;
+  // Plain id array on create; populated with full delivery documents when listed/fetched.
+  deliveryItems?: (string | Delivery)[];
   isDeleted?: boolean;
   deletedAt?: string;
   deletedByName?: string;
