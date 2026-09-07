@@ -11,6 +11,7 @@ import photoRoutes from './photo';
 import locationRoutes from './location';
 import analyticsRoutes from './analytics';
 import paymentRoutes from './payment';
+import fuelLogRoutes from './fuelLog';
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use('/photos', photoRoutes);
 router.use('/locations', locationRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/fuel-logs', fuelLogRoutes);
 
 export default router;

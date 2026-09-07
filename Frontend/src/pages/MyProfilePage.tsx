@@ -6,6 +6,7 @@ import Avatar from '@/components/shared/Avatar';
 import DetailField from '@/components/shared/DetailField';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import DriverRatingHistory from '@/components/shared/DriverRatingHistory';
+import DriverPayments from '@/components/shared/DriverPayments';
 import { formatDate, statusLabel } from '@/utils/formatters';
 
 export default function MyProfilePage() {
@@ -62,6 +63,17 @@ export default function MyProfilePage() {
             These details are set once and verified by your branch manager. Contact your manager if anything needs
             to change.
           </p>
+        </div>
+      )}
+
+      {profile.driver && (
+        <div className="card">
+          <h2 className="mb-4 font-semibold text-charcoal">My Payments</h2>
+          <DriverPayments
+            driverId={profile.driver._id}
+            totalEarnings={profile.driver.totalEarnings ?? 0}
+            totalPaid={profile.driver.totalPaid ?? 0}
+          />
         </div>
       )}
 

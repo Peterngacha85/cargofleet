@@ -44,7 +44,19 @@ export const listPayments = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const { driverId } = req.query;
     const filter: Record<string, unknown> = {};
-    if (driverId) filter.driverId = driverId;
+
+    if (req.user!.role === 'driver') {
+      // A driver can only ever see their own payment history, regardless of what driverId
+      // they pass - manager/admin aren't scoped this way since they legitimately need to
+      // look up any driver.
+      const ownDriver = await Driver.findOne({ userId: req.user!.id });
+      if (!ownDriver) {
+        return sendSuccess(res, 200, 'Payments retrieved', { payments: [], count: 0 });
+      }
+      filter.driverId = ownDriver._id;
+    } else if (driverId) {
+      filter.driverId = driverId;
+    }
 
     const payments = await Payment.find(filter).sort({ createdAt: -1 });
 

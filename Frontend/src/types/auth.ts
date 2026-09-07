@@ -32,6 +32,7 @@ export interface CurrentUserProfile extends AuthUser {
     completedTrips: number;
     avgRating: number;
     totalEarnings: number;
+    totalPaid?: number;
   };
   manager?: {
     _id: string;
