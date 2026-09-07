@@ -70,7 +70,8 @@ const findConflictingTrip = async (field: 'driverId' | 'vehicleId', id: string, 
 
 export const createTrip = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { driverId, vehicleId, branchId, pickupLocation, dropoffLocation, estimatedEndTime, fare } = req.body;
+    const { driverId, vehicleId, branchId, destinationBranchId: requestedDestinationBranchId, pickupLocation, dropoffLocation, estimatedEndTime, fare } =
+      req.body;
 
     if (!driverId || !vehicleId || !branchId || !pickupLocation || !dropoffLocation || !estimatedEndTime || !fare) {
       return sendError(res, 400, 'Missing required fields');
@@ -97,7 +98,13 @@ export const createTrip = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const tripNumber = await generateTripNumber();
-    const destinationBranchId = await findNearestBranchId(dropoffLocation.latitude, dropoffLocation.longitude);
+    // The manager picks the destination branch explicitly now - auto-detecting the nearest
+    // branch to the dropoff coordinates was a guess that often didn't match reality (e.g. a
+    // single-hub operation delivering directly to customers across many towns, where every
+    // trip is really destined for the same branch that dispatched it). Kept only as a fallback
+    // for any caller that doesn't send one.
+    const destinationBranchId =
+      requestedDestinationBranchId || (await findNearestBranchId(dropoffLocation.latitude, dropoffLocation.longitude));
 
     const trip = await Trip.create({
       tripNumber,

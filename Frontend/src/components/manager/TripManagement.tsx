@@ -48,6 +48,7 @@ const statusOptions = [
 const emptyForm = {
   driverId: '',
   vehicleId: '',
+  destinationBranchId: '',
   pickupAddress: '',
   pickupLat: String(DEFAULT_MAP_CENTER[0]),
   pickupLng: String(DEFAULT_MAP_CENTER[1]),
@@ -314,6 +315,7 @@ export default function TripManagement() {
     const {
       driverId,
       vehicleId,
+      destinationBranchId,
       pickupAddress,
       pickupLat,
       pickupLng,
@@ -350,6 +352,7 @@ export default function TripManagement() {
         driverId,
         vehicleId,
         branchId,
+        destinationBranchId: destinationBranchId || branchId,
         pickupLocation: {
           address: pickupAddress,
           latitude: Number(pickupLat),
@@ -420,6 +423,19 @@ export default function TripManagement() {
                 No verified vehicles assigned to {myBranchName} yet.
               </p>
             )}
+          </div>
+          <div>
+            <FieldLabel required>Destination Branch</FieldLabel>
+            <Select
+              value={form.destinationBranchId || branchId || ''}
+              onChange={(v) => setForm((f) => ({ ...f, destinationBranchId: v }))}
+              placeholder="Select destination branch"
+              options={branches.map((b) => ({ value: b._id, label: b.name }))}
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Whoever manages this branch can mark the trip received. Leave as {myBranchName} for a direct
+              customer delivery - only change it for a genuine handoff to another branch.
+            </p>
           </div>
         </div>
 

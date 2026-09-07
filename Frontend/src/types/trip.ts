@@ -53,6 +53,7 @@ export interface CreateTripPayload {
   driverId: string;
   vehicleId: string;
   branchId: string;
+  destinationBranchId?: string;
   pickupLocation: TripLocation;
   dropoffLocation: TripLocation;
   estimatedEndTime: string;
