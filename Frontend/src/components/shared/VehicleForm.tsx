@@ -18,6 +18,11 @@ const emptyForm = {
   year: '',
   capacity: '',
   fuelType: 'diesel' as FuelType,
+  maintenanceDue: '',
+  lastServiceDate: '',
+  insuranceExpiry: '',
+  registrationExpiry: '',
+  inspectionExpiry: '',
 };
 
 interface VehicleFormProps {
@@ -67,6 +72,11 @@ export default function VehicleForm({ branchId, branches, onCreated }: VehicleFo
         fuelType: form.fuelType,
         branchId: effectiveBranchId,
         photo,
+        maintenanceDue: form.maintenanceDue || undefined,
+        lastServiceDate: form.lastServiceDate || undefined,
+        insuranceExpiry: form.insuranceExpiry || undefined,
+        registrationExpiry: form.registrationExpiry || undefined,
+        inspectionExpiry: form.inspectionExpiry || undefined,
       });
       push(
         response.success
@@ -170,6 +180,55 @@ export default function VehicleForm({ branchId, branches, onCreated }: VehicleFo
             accept="image/*"
             className="input-field"
             onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          />
+        </div>
+      </div>
+
+      <p className="mb-3 mt-5 text-sm font-semibold text-charcoal">Maintenance &amp; Documents (optional)</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div>
+          <FieldLabel>Next Service Due</FieldLabel>
+          <input
+            type="date"
+            className="input-field"
+            value={form.maintenanceDue}
+            onChange={(e) => setForm((f) => ({ ...f, maintenanceDue: e.target.value }))}
+          />
+        </div>
+        <div>
+          <FieldLabel>Last Service Date</FieldLabel>
+          <input
+            type="date"
+            className="input-field"
+            value={form.lastServiceDate}
+            onChange={(e) => setForm((f) => ({ ...f, lastServiceDate: e.target.value }))}
+          />
+        </div>
+        <div>
+          <FieldLabel>Insurance Expiry</FieldLabel>
+          <input
+            type="date"
+            className="input-field"
+            value={form.insuranceExpiry}
+            onChange={(e) => setForm((f) => ({ ...f, insuranceExpiry: e.target.value }))}
+          />
+        </div>
+        <div>
+          <FieldLabel>Registration Expiry</FieldLabel>
+          <input
+            type="date"
+            className="input-field"
+            value={form.registrationExpiry}
+            onChange={(e) => setForm((f) => ({ ...f, registrationExpiry: e.target.value }))}
+          />
+        </div>
+        <div>
+          <FieldLabel>Inspection Expiry</FieldLabel>
+          <input
+            type="date"
+            className="input-field"
+            value={form.inspectionExpiry}
+            onChange={(e) => setForm((f) => ({ ...f, inspectionExpiry: e.target.value }))}
           />
         </div>
       </div>

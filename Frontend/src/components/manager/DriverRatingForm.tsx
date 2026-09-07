@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { api } from '@/services/api';
 import { useNotificationStore } from '@/stores/notificationStore';
+import Select from '@/components/shared/Select';
+import FieldLabel from '@/components/shared/FieldLabel';
 
 interface DriverRatingFormProps {
   driverId: string;
@@ -8,9 +10,25 @@ interface DriverRatingFormProps {
   onRated?: () => void;
 }
 
+const timelinessOptions = [
+  { value: 'on_time', label: 'On Time' },
+  { value: 'slightly_late', label: 'Slightly Late' },
+  { value: 'very_late', label: 'Very Late' },
+];
+
+const positiveTags = ['On time', 'Careful with cargo', 'Professional', 'Good communication', 'Friendly'];
+const negativeTags = ['Late', 'Damaged goods', 'Rude', 'Poor communication', 'Reckless driving'];
+
+function toggle(list: string[], value: string) {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}
+
 export default function DriverRatingForm({ driverId, tripId, onRated }: DriverRatingFormProps) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [timeliness, setTimeliness] = useState('on_time');
+  const [positiveAspects, setPositiveAspects] = useState<string[]>([]);
+  const [negativeAspects, setNegativeAspects] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const push = useNotificationStore((s) => s.push);
 
@@ -24,8 +42,10 @@ export default function DriverRatingForm({ driverId, tripId, onRated }: DriverRa
         ratedBy: 'manager',
         comment,
         deliveryQuality: rating >= 4 ? 'excellent' : rating >= 3 ? 'good' : 'poor',
-        timeliness: 'on_time',
+        timeliness,
         professionalism: rating >= 4 ? 'excellent' : 'good',
+        positiveAspects,
+        negativeAspects,
       });
       push(data.message, data.success ? 'success' : 'error');
       if (data.success) onRated?.();
@@ -51,6 +71,48 @@ export default function DriverRatingForm({ driverId, tripId, onRated }: DriverRa
           </button>
         ))}
       </div>
+
+      <div>
+        <FieldLabel>Timeliness</FieldLabel>
+        <Select value={timeliness} onChange={setTimeliness} options={timelinessOptions} />
+      </div>
+
+      <div>
+        <FieldLabel>What went well?</FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {positiveTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setPositiveAspects((prev) => toggle(prev, tag))}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                positiveAspects.includes(tag) ? 'bg-lime text-charcoal' : 'bg-soft-gray text-gray-600'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Any issues?</FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {negativeTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setNegativeAspects((prev) => toggle(prev, tag))}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                negativeAspects.includes(tag) ? 'bg-red-100 text-red-700' : 'bg-soft-gray text-gray-600'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <textarea
         className="input-field"
         placeholder="Comment on this delivery…"

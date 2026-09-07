@@ -93,7 +93,21 @@ export const getVehicle = async (req: AuthenticatedRequest, res: Response) => {
 
 export const createVehicle = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { registrationNumber, vehicleType, make, model, year, capacity, branchId, fuelType } = req.body;
+    const {
+      registrationNumber,
+      vehicleType,
+      make,
+      model,
+      year,
+      capacity,
+      branchId,
+      fuelType,
+      maintenanceDue,
+      lastServiceDate,
+      insuranceExpiry,
+      registrationExpiry,
+      inspectionExpiry,
+    } = req.body;
 
     if (!registrationNumber || !vehicleType || !make || !model || !year || !capacity || !branchId || !fuelType) {
       return sendError(res, 400, 'Missing required fields');
@@ -124,6 +138,13 @@ export const createVehicle = async (req: AuthenticatedRequest, res: Response) =>
       photoUrl,
       registeredBy: req.user!.id,
       status: isAdmin ? 'active' : 'pending_verification',
+      maintenanceDue: maintenanceDue ? new Date(maintenanceDue) : undefined,
+      lastServiceDate: lastServiceDate ? new Date(lastServiceDate) : undefined,
+      documents: {
+        insuranceExpiry: insuranceExpiry ? new Date(insuranceExpiry) : undefined,
+        registrationExpiry: registrationExpiry ? new Date(registrationExpiry) : undefined,
+        inspectionExpiry: inspectionExpiry ? new Date(inspectionExpiry) : undefined,
+      },
     });
 
     if (!isAdmin) {
@@ -160,13 +181,30 @@ export const updateVehicle = async (req: AuthenticatedRequest, res: Response) =>
 
     // Only these fields are editable - registrationNumber/branchId/status etc. stay
     // out of reach of a plain field-by-field req.body pass-through.
-    const { vehicleType, make, model, year, capacity, fuelType } = req.body;
+    const {
+      vehicleType,
+      make,
+      model,
+      year,
+      capacity,
+      fuelType,
+      maintenanceDue,
+      lastServiceDate,
+      insuranceExpiry,
+      registrationExpiry,
+      inspectionExpiry,
+    } = req.body;
     if (vehicleType !== undefined) vehicle.vehicleType = vehicleType;
     if (make !== undefined) vehicle.make = make;
     if (model !== undefined) vehicle.model = model;
     if (year !== undefined) vehicle.year = year;
     if (capacity !== undefined) vehicle.capacity = capacity;
     if (fuelType !== undefined) vehicle.fuelType = fuelType;
+    if (maintenanceDue !== undefined) vehicle.maintenanceDue = maintenanceDue ? new Date(maintenanceDue) : undefined;
+    if (lastServiceDate !== undefined) vehicle.lastServiceDate = lastServiceDate ? new Date(lastServiceDate) : undefined;
+    if (insuranceExpiry !== undefined) vehicle.documents.insuranceExpiry = new Date(insuranceExpiry);
+    if (registrationExpiry !== undefined) vehicle.documents.registrationExpiry = new Date(registrationExpiry);
+    if (inspectionExpiry !== undefined) vehicle.documents.inspectionExpiry = new Date(inspectionExpiry);
 
     if (req.file) {
       const { url } = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, 'vehicles');

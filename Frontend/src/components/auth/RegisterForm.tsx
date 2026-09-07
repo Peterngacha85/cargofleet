@@ -19,6 +19,7 @@ interface RegisterFormProps {
 
 export default function RegisterForm({ role }: RegisterFormProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [licensePhoto, setLicensePhoto] = useState<File | null>(null);
   const push = useNotificationStore((s) => s.push);
   const navigate = useNavigate();
   const isDriver = role === 'driver';
@@ -35,7 +36,7 @@ export default function RegisterForm({ role }: RegisterFormProps) {
     setSubmitting(true);
     try {
       const response = isDriver
-        ? await AuthService.registerDriver(values as DriverRegisterFormValues)
+        ? await AuthService.registerDriver(values as DriverRegisterFormValues, licensePhoto ?? undefined)
         : await AuthService.registerManager(values as ManagerRegisterFormValues);
 
       if (response.success) {
@@ -98,6 +99,15 @@ export default function RegisterForm({ role }: RegisterFormProps) {
               <FieldLabel required>Emergency Contact Phone</FieldLabel>
               <input className="input-field" {...register('emergencyContactPhone' as any)} />
             </div>
+          </div>
+          <div>
+            <FieldLabel>Driving License Photo (optional)</FieldLabel>
+            <input
+              type="file"
+              accept="image/*"
+              className="input-field"
+              onChange={(e) => setLicensePhoto(e.target.files?.[0] ?? null)}
+            />
           </div>
         </>
       )}

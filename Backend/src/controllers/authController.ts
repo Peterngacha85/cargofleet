@@ -13,6 +13,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { isValidPhone, isFutureDate } from '../utils/validators';
 import { IDriver } from '../models/Driver';
 import { emitToManagers, emitToAdmins } from '../websocket/emitters';
+import { uploadFile } from '../services/fileService';
 
 const googleClient = new OAuth2Client(config.google.clientId);
 
@@ -264,12 +265,19 @@ export const registerDriver = async (req: Request, res: Response) => {
     const user = new User({ email, password: hashedPassword, firstName, lastName, phone, role: 'driver' });
     await user.save();
 
+    let licensePhotoUrl: string | undefined;
+    if (req.file) {
+      const { url } = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, 'driver-licenses');
+      licensePhotoUrl = url;
+    }
+
     const driver = new Driver({
       userId: user._id,
       drivingLicenseNumber,
       licenseExpiry: new Date(licenseExpiry),
       emergencyContactName,
       emergencyContactPhone,
+      licensePhotoUrl,
       status: 'pending_approval',
     });
     await driver.save();

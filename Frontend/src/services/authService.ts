@@ -40,7 +40,19 @@ export const AuthService = {
     return data;
   },
 
-  async registerDriver(payload: DriverRegisterPayload) {
+  async registerDriver(payload: DriverRegisterPayload, licensePhoto?: File) {
+    if (licensePhoto) {
+      const formData = new FormData();
+      Object.entries(payload).forEach(([key, value]) => formData.append(key, value));
+      formData.append('licensePhoto', licensePhoto);
+      const { data } = await api.post<ApiResponse<{ driverId: string; status: string }>>(
+        '/auth/register/driver',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      return data;
+    }
+
     const { data } = await api.post<ApiResponse<{ driverId: string; status: string }>>(
       '/auth/register/driver',
       payload

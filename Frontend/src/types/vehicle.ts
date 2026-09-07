@@ -26,6 +26,13 @@ export interface Vehicle {
   rejectionReason?: string;
   photoUrl?: string;
   totalTrips: number;
+  maintenanceDue?: string;
+  lastServiceDate?: string;
+  documents?: {
+    insuranceExpiry?: string;
+    registrationExpiry?: string;
+    inspectionExpiry?: string;
+  };
 }
 
 export interface CreateVehiclePayload {
@@ -38,6 +45,11 @@ export interface CreateVehiclePayload {
   branchId: string;
   fuelType: FuelType;
   photo: File;
+  maintenanceDue?: string;
+  lastServiceDate?: string;
+  insuranceExpiry?: string;
+  registrationExpiry?: string;
+  inspectionExpiry?: string;
 }
 
 export interface UpdateVehiclePayload {
@@ -48,4 +60,9 @@ export interface UpdateVehiclePayload {
   capacity?: number;
   fuelType?: FuelType;
   photo?: File;
+  maintenanceDue?: string;
+  lastServiceDate?: string;
+  insuranceExpiry?: string;
+  registrationExpiry?: string;
+  inspectionExpiry?: string;
 }

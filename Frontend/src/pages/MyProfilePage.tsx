@@ -5,6 +5,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import Avatar from '@/components/shared/Avatar';
 import DetailField from '@/components/shared/DetailField';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import DriverRatingHistory from '@/components/shared/DriverRatingHistory';
 import { formatDate, statusLabel } from '@/utils/formatters';
 
 export default function MyProfilePage() {
@@ -61,6 +62,13 @@ export default function MyProfilePage() {
             These details are set once and verified by your branch manager. Contact your manager if anything needs
             to change.
           </p>
+        </div>
+      )}
+
+      {profile.driver && (
+        <div className="card">
+          <h2 className="mb-4 font-semibold text-charcoal">My Ratings</h2>
+          <DriverRatingHistory driverId={profile.driver._id} />
         </div>
       )}
 

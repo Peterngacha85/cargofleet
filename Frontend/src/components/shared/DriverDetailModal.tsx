@@ -4,6 +4,7 @@ import Avatar from './Avatar';
 import DetailField from './DetailField';
 import Select from './Select';
 import FieldLabel from './FieldLabel';
+import DriverRatingHistory from './DriverRatingHistory';
 import { DriverService } from '@/services/driverService';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -96,6 +97,11 @@ export default function DriverDetailModal({ driver, onClose, onReassigned }: Dri
       {driver.status === 'rejected' && driver.rejectionReason && (
         <p className="mt-4 text-sm text-red-600">Rejection reason: {driver.rejectionReason}</p>
       )}
+
+      <div className="mt-6 border-t border-gray-100 pt-4">
+        <h3 className="mb-3 text-sm font-semibold text-charcoal">Ratings</h3>
+        <DriverRatingHistory driverId={driver._id} />
+      </div>
 
       {canReassign && driver.status === 'active' && (
         <div className="mt-6 border-t border-gray-100 pt-4">

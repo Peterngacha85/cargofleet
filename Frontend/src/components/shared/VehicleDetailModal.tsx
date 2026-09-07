@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Truck } from 'lucide-react';
+import { Truck, AlertTriangle } from 'lucide-react';
 import Modal from './Modal';
 import DetailField from './DetailField';
 import FieldLabel from './FieldLabel';
@@ -28,6 +28,32 @@ const statusStyles: Record<string, string> = {
 const vehicleTypes: VehicleType[] = ['motorcycle', 'van', 'truck', 'lorry'];
 const fuelTypes: FuelType[] = ['petrol', 'diesel', 'electric'];
 
+// yyyy-mm-dd for a date input's value, from an ISO string or undefined.
+const toDateInputValue = (value?: string) => (value ? value.slice(0, 10) : '');
+
+function ExpiryField({ label, value }: { label: string; value?: string }) {
+  if (!value) return <DetailField label={label} value={undefined} />;
+
+  const days = Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
+  const badgeClass =
+    days < 0 ? 'bg-red-100 text-red-700' : days <= 30 ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-700';
+
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="mt-0.5 flex items-center gap-1.5 text-sm text-charcoal">
+        {new Date(value).toLocaleDateString()}
+        {days <= 30 && (
+          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+            <AlertTriangle className="h-3 w-3" />
+            {days < 0 ? 'Expired' : `${days}d left`}
+          </span>
+        )}
+      </p>
+    </div>
+  );
+}
+
 export default function VehicleDetailModal({ vehicle, onClose, onUpdated }: VehicleDetailModalProps) {
   const { role } = useAuth();
   const profile = useProfileStore((s) => s.profile);
@@ -46,6 +72,11 @@ export default function VehicleDetailModal({ vehicle, onClose, onUpdated }: Vehi
     year: String(vehicle.year),
     capacity: String(vehicle.capacity),
     fuelType: vehicle.fuelType,
+    maintenanceDue: toDateInputValue(vehicle.maintenanceDue),
+    lastServiceDate: toDateInputValue(vehicle.lastServiceDate),
+    insuranceExpiry: toDateInputValue(vehicle.documents?.insuranceExpiry),
+    registrationExpiry: toDateInputValue(vehicle.documents?.registrationExpiry),
+    inspectionExpiry: toDateInputValue(vehicle.documents?.inspectionExpiry),
   });
 
   const myBranchId = profile?.manager?.assignedBranchId;
@@ -65,6 +96,11 @@ export default function VehicleDetailModal({ vehicle, onClose, onUpdated }: Vehi
         capacity: Number(form.capacity),
         fuelType: form.fuelType,
         photo: photo ?? undefined,
+        maintenanceDue: form.maintenanceDue || undefined,
+        lastServiceDate: form.lastServiceDate || undefined,
+        insuranceExpiry: form.insuranceExpiry || undefined,
+        registrationExpiry: form.registrationExpiry || undefined,
+        inspectionExpiry: form.inspectionExpiry || undefined,
       });
       push(
         response.success
@@ -142,6 +178,14 @@ export default function VehicleDetailModal({ vehicle, onClose, onUpdated }: Vehi
             <DetailField label="Total Trips" value={vehicle.totalTrips} />
             <DetailField label="Registered By" value={vehicle.registeredByName} />
             <DetailField label="Verified By" value={vehicle.verifiedByName} />
+            <ExpiryField label="Next Service Due" value={vehicle.maintenanceDue} />
+            <DetailField
+              label="Last Service Date"
+              value={vehicle.lastServiceDate ? new Date(vehicle.lastServiceDate).toLocaleDateString() : undefined}
+            />
+            <ExpiryField label="Insurance Expiry" value={vehicle.documents?.insuranceExpiry} />
+            <ExpiryField label="Registration Expiry" value={vehicle.documents?.registrationExpiry} />
+            <ExpiryField label="Inspection Expiry" value={vehicle.documents?.inspectionExpiry} />
           </div>
 
           {vehicle.status === 'rejected' && vehicle.rejectionReason && (
@@ -226,6 +270,55 @@ export default function VehicleDetailModal({ vehicle, onClose, onUpdated }: Vehi
                 accept="image/*"
                 className="input-field"
                 onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+
+          <p className="mb-3 mt-5 text-sm font-semibold text-charcoal">Maintenance &amp; Documents</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <FieldLabel>Next Service Due</FieldLabel>
+              <input
+                type="date"
+                className="input-field"
+                value={form.maintenanceDue}
+                onChange={(e) => setForm((f) => ({ ...f, maintenanceDue: e.target.value }))}
+              />
+            </div>
+            <div>
+              <FieldLabel>Last Service Date</FieldLabel>
+              <input
+                type="date"
+                className="input-field"
+                value={form.lastServiceDate}
+                onChange={(e) => setForm((f) => ({ ...f, lastServiceDate: e.target.value }))}
+              />
+            </div>
+            <div>
+              <FieldLabel>Insurance Expiry</FieldLabel>
+              <input
+                type="date"
+                className="input-field"
+                value={form.insuranceExpiry}
+                onChange={(e) => setForm((f) => ({ ...f, insuranceExpiry: e.target.value }))}
+              />
+            </div>
+            <div>
+              <FieldLabel>Registration Expiry</FieldLabel>
+              <input
+                type="date"
+                className="input-field"
+                value={form.registrationExpiry}
+                onChange={(e) => setForm((f) => ({ ...f, registrationExpiry: e.target.value }))}
+              />
+            </div>
+            <div>
+              <FieldLabel>Inspection Expiry</FieldLabel>
+              <input
+                type="date"
+                className="input-field"
+                value={form.inspectionExpiry}
+                onChange={(e) => setForm((f) => ({ ...f, inspectionExpiry: e.target.value }))}
               />
             </div>
           </div>
