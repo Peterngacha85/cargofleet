@@ -4,6 +4,7 @@ import Modal from './Modal';
 import DetailField from './DetailField';
 import FieldLabel from './FieldLabel';
 import Select from './Select';
+import FuelLogHistory from './FuelLogHistory';
 import { VehicleService } from '@/services/vehicleService';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileStore } from '@/stores/profileStore';
@@ -191,6 +192,11 @@ export default function VehicleDetailModal({ vehicle, onClose, onUpdated }: Vehi
           {vehicle.status === 'rejected' && vehicle.rejectionReason && (
             <p className="mt-4 text-sm text-red-600">Rejection reason: {vehicle.rejectionReason}</p>
           )}
+
+          <div className="mt-6 border-t border-gray-100 pt-4">
+            <h3 className="mb-3 text-sm font-semibold text-charcoal">Fuel</h3>
+            <FuelLogHistory vehicleId={vehicle._id} />
+          </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
             {canEdit && (

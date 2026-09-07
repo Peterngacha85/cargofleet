@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin } from 'lucide-react';
+import { MapPin, Fuel } from 'lucide-react';
 import { TripService } from '@/services/tripService';
+import { FuelLogService } from '@/services/fuelLogService';
 import { connectSocket } from '@/services/socketService';
 import { Trip } from '@/types/trip';
 import { useProfileStore } from '@/stores/profileStore';
@@ -10,6 +11,7 @@ import { useTripTrackingStore } from '@/stores/tripTrackingStore';
 import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { formatCurrency, formatDate, statusLabel } from '@/utils/formatters';
+import FieldLabel from '@/components/shared/FieldLabel';
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-gray-200 text-gray-700',
@@ -28,6 +30,13 @@ export default function MyTrips() {
   const push = useNotificationStore((s) => s.push);
   const navigate = useNavigate();
   const driverId = profile?.driver?._id;
+
+  const [loggingFuelTripId, setLoggingFuelTripId] = useState<string | null>(null);
+  const [fuelLiters, setFuelLiters] = useState('');
+  const [fuelCost, setFuelCost] = useState('');
+  const [fuelOdometer, setFuelOdometer] = useState('');
+  const [fuelReceipt, setFuelReceipt] = useState<File | null>(null);
+  const [fuelSubmitting, setFuelSubmitting] = useState(false);
 
   const load = () => {
     if (!driverId) return;
@@ -112,6 +121,42 @@ export default function MyTrips() {
     navigate('/dashboard/map');
   };
 
+  const openLogFuel = (trip: Trip) => {
+    setLoggingFuelTripId(trip._id);
+    setFuelLiters('');
+    setFuelCost('');
+    setFuelOdometer('');
+    setFuelReceipt(null);
+  };
+
+  const handleLogFuel = async (trip: Trip) => {
+    const vehicleId = typeof trip.vehicleId === 'string' ? trip.vehicleId : trip.vehicleId._id;
+    if (!driverId || !vehicleId) return;
+    if (!fuelLiters || !fuelCost) {
+      push('Enter both liters and cost.', 'warning');
+      return;
+    }
+
+    setFuelSubmitting(true);
+    try {
+      const response = await FuelLogService.log({
+        vehicleId,
+        driverId,
+        tripId: trip._id,
+        liters: Number(fuelLiters),
+        cost: Number(fuelCost),
+        odometerReading: fuelOdometer ? Number(fuelOdometer) : undefined,
+        receipt: fuelReceipt ?? undefined,
+      });
+      push(response.success ? 'Fuel logged.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) setLoggingFuelTripId(null);
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to log fuel', 'error');
+    } finally {
+      setFuelSubmitting(false);
+    }
+  };
+
   if (trips.length === 0) {
     return <p className="text-sm text-gray-500">No trips assigned yet.</p>;
   }
@@ -185,9 +230,64 @@ export default function MyTrips() {
                     Resume Sharing
                   </button>
                 )}
+                <button
+                  className="btn-secondary flex items-center gap-1"
+                  onClick={() => (loggingFuelTripId === trip._id ? setLoggingFuelTripId(null) : openLogFuel(trip))}
+                >
+                  <Fuel className="h-4 w-4" />
+                  Log Fuel
+                </button>
               </div>
             )}
           </div>
+
+          {loggingFuelTripId === trip._id && (
+            <div className="flex flex-wrap items-end gap-3 rounded-lg bg-soft-gray p-3">
+              <div className="w-24">
+                <FieldLabel required>Liters</FieldLabel>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={fuelLiters}
+                  onChange={(e) => setFuelLiters(e.target.value)}
+                />
+              </div>
+              <div className="w-28">
+                <FieldLabel required>Cost (KSh)</FieldLabel>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={fuelCost}
+                  onChange={(e) => setFuelCost(e.target.value)}
+                />
+              </div>
+              <div className="w-32">
+                <FieldLabel>Odometer</FieldLabel>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={fuelOdometer}
+                  onChange={(e) => setFuelOdometer(e.target.value)}
+                />
+              </div>
+              <div className="min-w-[160px] flex-1">
+                <FieldLabel>Receipt (optional)</FieldLabel>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="input-field"
+                  onChange={(e) => setFuelReceipt(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              <button className="btn-primary" onClick={() => handleLogFuel(trip)} disabled={fuelSubmitting}>
+                {fuelSubmitting ? 'Saving…' : 'Save'}
+              </button>
+              <button className="btn-secondary" onClick={() => setLoggingFuelTripId(null)}>
+                Cancel
+              </button>
+            </div>
+          )}
         </li>
       ))}
     </ul>
