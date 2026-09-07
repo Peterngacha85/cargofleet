@@ -28,6 +28,11 @@ const fuelPaymentOptions = [
   { value: 'mpesa', label: 'M-Pesa' },
 ];
 
+// The transaction code is always the first token of an M-Pesa confirmation SMS
+// ("UI5AM5HMR6 Confirmed. Ksh100.00 sent to...") - pasting the whole message in should still
+// leave just the code, not the entire text.
+const extractMpesaCode = (value: string) => value.trim().split(/\s+/)[0]?.toUpperCase() ?? '';
+
 export default function MyTrips() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [starting, setStarting] = useState<string | null>(null);
@@ -297,9 +302,9 @@ export default function MyTrips() {
                   <FieldLabel>M-Pesa Code</FieldLabel>
                   <input
                     className="input-field"
-                    placeholder="e.g. QGH7XYZ123"
+                    placeholder="Paste the code or the whole SMS"
                     value={fuelMpesaCode}
-                    onChange={(e) => setFuelMpesaCode(e.target.value)}
+                    onChange={(e) => setFuelMpesaCode(extractMpesaCode(e.target.value))}
                   />
                 </div>
               )}
