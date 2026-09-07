@@ -7,7 +7,7 @@ import { logger } from '../utils/logger';
 
 export const logFuel = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { vehicleId, tripId, driverId, liters, cost, odometerReading } = req.body;
+    const { vehicleId, tripId, driverId, liters, cost, odometerReading, paymentMethod, mpesaCode } = req.body;
 
     if (!vehicleId || !driverId || !liters || !cost) {
       return sendError(res, 400, 'vehicleId, driverId, liters, and cost are required');
@@ -26,6 +26,8 @@ export const logFuel = async (req: AuthenticatedRequest, res: Response) => {
       liters,
       cost,
       odometerReading: odometerReading || undefined,
+      paymentMethod: paymentMethod || undefined,
+      mpesaCode: mpesaCode || undefined,
       receiptPhotoUrl,
       loggedBy: req.user!.id,
     });

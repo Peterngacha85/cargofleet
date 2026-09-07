@@ -1,6 +1,6 @@
 import { api } from './api';
 import { ApiResponse } from '@/types/api';
-import { FuelLog, FuelLogTotals } from '@/types/fuelLog';
+import { FuelLog, FuelLogTotals, FuelPaymentMethod } from '@/types/fuelLog';
 
 export const FuelLogService = {
   async list(params: { vehicleId?: string; tripId?: string }) {
@@ -18,6 +18,8 @@ export const FuelLogService = {
     liters: number;
     cost: number;
     odometerReading?: number;
+    paymentMethod?: FuelPaymentMethod;
+    mpesaCode?: string;
     receipt?: File;
   }) {
     const formData = new FormData();

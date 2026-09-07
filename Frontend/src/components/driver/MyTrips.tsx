@@ -12,6 +12,8 @@ import { useMapFocusStore } from '@/stores/mapFocusStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { formatCurrency, formatDate, statusLabel } from '@/utils/formatters';
 import FieldLabel from '@/components/shared/FieldLabel';
+import Select from '@/components/shared/Select';
+import { FuelPaymentMethod } from '@/types/fuelLog';
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-gray-200 text-gray-700',
@@ -19,6 +21,12 @@ const statusStyles: Record<string, string> = {
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 };
+
+const fuelPaymentOptions = [
+  { value: '', label: 'Not specified' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'mpesa', label: 'M-Pesa' },
+];
 
 export default function MyTrips() {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -35,6 +43,8 @@ export default function MyTrips() {
   const [fuelLiters, setFuelLiters] = useState('');
   const [fuelCost, setFuelCost] = useState('');
   const [fuelOdometer, setFuelOdometer] = useState('');
+  const [fuelPaymentMethod, setFuelPaymentMethod] = useState<FuelPaymentMethod | ''>('');
+  const [fuelMpesaCode, setFuelMpesaCode] = useState('');
   const [fuelReceipt, setFuelReceipt] = useState<File | null>(null);
   const [fuelSubmitting, setFuelSubmitting] = useState(false);
 
@@ -126,6 +136,8 @@ export default function MyTrips() {
     setFuelLiters('');
     setFuelCost('');
     setFuelOdometer('');
+    setFuelPaymentMethod('');
+    setFuelMpesaCode('');
     setFuelReceipt(null);
   };
 
@@ -146,6 +158,8 @@ export default function MyTrips() {
         liters: Number(fuelLiters),
         cost: Number(fuelCost),
         odometerReading: fuelOdometer ? Number(fuelOdometer) : undefined,
+        paymentMethod: fuelPaymentMethod || undefined,
+        mpesaCode: fuelMpesaCode || undefined,
         receipt: fuelReceipt ?? undefined,
       });
       push(response.success ? 'Fuel logged.' : response.message, response.success ? 'success' : 'error');
@@ -270,8 +284,27 @@ export default function MyTrips() {
                   onChange={(e) => setFuelOdometer(e.target.value)}
                 />
               </div>
+              <div className="w-32">
+                <FieldLabel>Paid With</FieldLabel>
+                <Select
+                  value={fuelPaymentMethod}
+                  onChange={(v) => setFuelPaymentMethod(v as FuelPaymentMethod | '')}
+                  options={fuelPaymentOptions}
+                />
+              </div>
+              {fuelPaymentMethod === 'mpesa' && (
+                <div className="w-36">
+                  <FieldLabel>M-Pesa Code</FieldLabel>
+                  <input
+                    className="input-field"
+                    placeholder="e.g. QGH7XYZ123"
+                    value={fuelMpesaCode}
+                    onChange={(e) => setFuelMpesaCode(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="min-w-[160px] flex-1">
-                <FieldLabel>Receipt (optional)</FieldLabel>
+                <FieldLabel>Receipt (if given)</FieldLabel>
                 <input
                   type="file"
                   accept="image/*"

@@ -35,6 +35,11 @@ export default function FuelLogHistory({ vehicleId }: FuelLogHistoryProps) {
             <span className="text-charcoal">
               {f.liters} L · {formatCurrency(f.cost)}
               {f.odometerReading ? ` · ${f.odometerReading} km` : ''}
+              {f.paymentMethod === 'mpesa'
+                ? ` · M-Pesa${f.mpesaCode ? ` (${f.mpesaCode})` : ''}`
+                : f.paymentMethod === 'cash'
+                  ? ' · Cash'
+                  : ''}
               {f.receiptPhotoUrl && (
                 <a
                   href={f.receiptPhotoUrl}

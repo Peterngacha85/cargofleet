@@ -8,6 +8,10 @@ export interface IFuelLog extends Document {
   liters: number;
   cost: number;
   odometerReading?: number;
+  paymentMethod?: 'cash' | 'mpesa';
+  // Most fuel stations don't give a physical receipt - the M-Pesa transaction code serves as
+  // proof of payment instead when that's how it was paid. Cash has no equivalent for now.
+  mpesaCode?: string;
   receiptPhotoUrl?: string;
   // String, not ObjectId ref: a super admin (env-based "super_admin_N" id, not a User
   // document) can log fuel too, same pattern as Driver.approvedBy.
@@ -24,6 +28,8 @@ const fuelLogSchema = new Schema<IFuelLog>(
     liters: { type: Number, required: true, min: 0 },
     cost: { type: Number, required: true, min: 0 },
     odometerReading: { type: Number, min: 0 },
+    paymentMethod: { type: String, enum: ['cash', 'mpesa'] },
+    mpesaCode: { type: String },
     receiptPhotoUrl: { type: String },
     loggedBy: { type: String, required: true },
   },
