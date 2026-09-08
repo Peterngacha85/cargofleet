@@ -231,7 +231,7 @@ export default function MyTrips() {
             )}
 
             {trip.status === 'in_transit' && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {activeTripId === trip._id ? (
                   <>
                     <button

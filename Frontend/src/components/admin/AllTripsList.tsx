@@ -369,7 +369,7 @@ export default function AllTripsList() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusStyles[trip.status]}`}>
                     {statusLabel(trip.status)}
                   </span>
