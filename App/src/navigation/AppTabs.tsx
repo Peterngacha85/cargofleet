@@ -1,4 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { House, Truck, User } from 'lucide-react-native';
 import { AppTabParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
 import TripsScreen from '../screens/TripsScreen';
@@ -16,9 +17,21 @@ export default function AppTabs() {
         tabBarInactiveTintColor: colors.textMuted,
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Trips" component={TripsScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ tabBarIcon: ({ color, size }) => <House color={color} size={size} /> }}
+      />
+      <Tab.Screen
+        name="Trips"
+        component={TripsScreen}
+        options={{ tabBarIcon: ({ color, size }) => <Truck color={color} size={size} /> }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarIcon: ({ color, size }) => <User color={color} size={size} /> }}
+      />
     </Tab.Navigator>
   );
 }

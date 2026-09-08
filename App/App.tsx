@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet, View } from 'react-native';
 import { useAuthStore } from './src/stores/authStore';
 import { useProfileStore } from './src/stores/profileStore';
+import { useOnboardingStore } from './src/stores/onboardingStore';
 import { storage } from './src/utils/storage';
 import RootNavigator from './src/navigation/RootNavigator';
 import ToastHost from './src/components/ToastHost';
@@ -12,8 +13,11 @@ import ToastHost from './src/components/ToastHost';
 export default function App() {
   const setBootstrapped = useAuthStore((s) => s.setBootstrapped);
   const fetchProfile = useProfileStore((s) => s.fetchProfile);
+  const checkOnboarding = useOnboardingStore((s) => s.check);
 
   useEffect(() => {
+    checkOnboarding();
+
     (async () => {
       const token = await storage.getAccessToken();
       if (!token) {
