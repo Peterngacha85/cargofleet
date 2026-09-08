@@ -1,0 +1,48 @@
+export type UserRole = 'driver' | 'manager' | 'admin';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: UserRole;
+  phone?: string;
+  profilePhoto?: string;
+}
+
+export interface LoginResponseData {
+  accessToken: string;
+  refreshToken: string;
+  user: AuthUser;
+}
+
+export interface CurrentUserProfile extends AuthUser {
+  profileComplete: boolean;
+  driver?: {
+    _id: string;
+    status: string;
+    branchId?: string;
+    assignedVehicleId?: string;
+    drivingLicenseNumber: string;
+    licenseExpiry: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    totalTrips: number;
+    completedTrips: number;
+    avgRating: number;
+    totalEarnings: number;
+    totalPaid?: number;
+  };
+}
+
+export interface DriverRegisterPayload {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  drivingLicenseNumber: string;
+  licenseExpiry: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+}
