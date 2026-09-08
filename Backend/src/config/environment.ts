@@ -24,6 +24,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().optional(),
+  // The mobile app authenticates against its own platform-specific OAuth client (Android's
+  // client type is bound to the app's signing certificate, so it can't share the web client
+  // ID) - its ID tokens carry that client ID as `aud`, which verifyIdToken must also accept.
+  GOOGLE_ANDROID_CLIENT_ID: z.string().optional(),
+  GOOGLE_IOS_CLIENT_ID: z.string().optional(),
 
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
@@ -78,6 +83,11 @@ export const config = {
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
     redirectUri: env.GOOGLE_REDIRECT_URI,
+    // Every platform-specific client ID that's allowed to mint an ID token this backend will
+    // accept - verifyIdToken checks the token's `aud` against all of these at once.
+    validAudiences: [env.GOOGLE_CLIENT_ID, env.GOOGLE_ANDROID_CLIENT_ID, env.GOOGLE_IOS_CLIENT_ID].filter(
+      (id): id is string => !!id
+    ),
   },
 
   cloudinary: {

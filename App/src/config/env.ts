@@ -2,3 +2,4 @@
 // prefix on the web frontend) - see .env.example for the full list and where to get each value.
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000/api';
 export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? 'http://localhost:5000';
+export const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? '';

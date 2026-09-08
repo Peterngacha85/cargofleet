@@ -8,6 +8,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import Button from '../../components/Button';
 import TextField from '../../components/TextField';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 import { colors } from '../../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -70,6 +71,7 @@ export default function LoginScreen({ navigation }: Props) {
             placeholder="••••••••"
           />
           <Button title="Sign In" onPress={handleLogin} loading={submitting} />
+          <GoogleAuthButton />
         </View>
 
         <Text style={styles.footer}>

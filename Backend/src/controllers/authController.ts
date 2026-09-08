@@ -125,7 +125,7 @@ export const googleOAuthLogin = async (req: Request, res: Response) => {
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: tokenId,
-      audience: config.google.clientId,
+      audience: config.google.validAudiences,
     });
 
     const payload = ticket.getPayload();

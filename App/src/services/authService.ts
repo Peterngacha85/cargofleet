@@ -24,6 +24,13 @@ export const AuthService = {
     return data;
   },
 
+  async googleLogin(idToken: string) {
+    const { data } = await api.post<ApiResponse<LoginResponseData>>('/auth/google/login?role=driver', {
+      tokenId: idToken,
+    });
+    return data;
+  },
+
   // licensePhoto is an Expo ImagePicker asset URI, not a File - React Native's fetch/FormData
   // accepts { uri, name, type } in place of a Blob, unlike the web app's real File object.
   async registerDriver(payload: DriverRegisterPayload, licensePhoto?: { uri: string; name: string; type: string }) {
