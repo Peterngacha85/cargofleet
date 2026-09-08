@@ -58,4 +58,31 @@ export const DriverService = {
     const { data } = await api.get<ApiResponse<DriverPerformance>>(`/drivers/${driverId}/performance`);
     return data;
   },
+
+  async getPendingDeletion() {
+    const { data } = await api.get<ApiResponse<{ drivers: Driver[]; count: number }>>('/drivers/pending-deletion');
+    return data;
+  },
+
+  async requestDeletion(driverId: string, reason: string) {
+    const { data } = await api.post<ApiResponse<{ driver: Driver }>>(`/drivers/${driverId}/request-deletion`, {
+      reason,
+    });
+    return data;
+  },
+
+  async dismissDeletionRequest(driverId: string) {
+    const { data } = await api.post<ApiResponse<{ driver: Driver }>>(`/drivers/${driverId}/dismiss-deletion-request`);
+    return data;
+  },
+
+  async delete(driverId: string) {
+    const { data } = await api.delete<ApiResponse<{ driver: Driver }>>(`/drivers/${driverId}`);
+    return data;
+  },
+
+  async restore(driverId: string) {
+    const { data } = await api.post<ApiResponse<{ driver: Driver }>>(`/drivers/${driverId}/restore`);
+    return data;
+  },
 };

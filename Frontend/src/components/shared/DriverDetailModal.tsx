@@ -9,6 +9,7 @@ import DriverPayments from './DriverPayments';
 import DriverPerformanceFields from './DriverPerformanceFields';
 import { DriverService } from '@/services/driverService';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { confirmDialog, promptDialog } from '@/stores/dialogStore';
 import { useAuth } from '@/hooks/useAuth';
 import { Driver, DriverUserSummary, PopulatedBranchSummary, Branch } from '@/types/driver';
 import { formatCurrency, formatDate, statusLabel } from '@/utils/formatters';
@@ -17,6 +18,7 @@ interface DriverDetailModalProps {
   driver: Driver;
   onClose: () => void;
   onReassigned?: () => void;
+  onDeleted?: () => void;
 }
 
 const statusStyles: Record<string, string> = {
@@ -26,7 +28,7 @@ const statusStyles: Record<string, string> = {
   suspended: 'bg-gray-200 text-gray-700',
 };
 
-export default function DriverDetailModal({ driver, onClose, onReassigned }: DriverDetailModalProps) {
+export default function DriverDetailModal({ driver, onClose, onReassigned, onDeleted }: DriverDetailModalProps) {
   const user = driver.userId as DriverUserSummary;
   const branch = driver.branchId as PopulatedBranchSummary | undefined;
   const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
@@ -37,7 +39,67 @@ export default function DriverDetailModal({ driver, onClose, onReassigned }: Dri
   const [newBranchId, setNewBranchId] = useState('');
   const [reassigning, setReassigning] = useState(false);
   const [totalPaid, setTotalPaid] = useState(driver.totalPaid ?? 0);
+  const [deletionActing, setDeletionActing] = useState(false);
   const push = useNotificationStore((s) => s.push);
+
+  const handleRequestDeletion = async () => {
+    const reason = await promptDialog({ title: 'Reason for deletion request', placeholder: 'e.g. No longer employed' });
+    if (!reason) return;
+
+    setDeletionActing(true);
+    try {
+      const response = await DriverService.requestDeletion(driver._id, reason);
+      push(response.success ? 'Deletion requested - a super admin will review it.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) {
+        onReassigned?.();
+        onClose();
+      }
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to request deletion', 'error');
+    } finally {
+      setDeletionActing(false);
+    }
+  };
+
+  const handleDismissRequest = async () => {
+    setDeletionActing(true);
+    try {
+      const response = await DriverService.dismissDeletionRequest(driver._id);
+      push(response.success ? 'Deletion request dismissed.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) {
+        onReassigned?.();
+        onClose();
+      }
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to dismiss request', 'error');
+    } finally {
+      setDeletionActing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Delete driver',
+      message: `Delete ${fullName || user?.email}? This can be undone by a super admin later, but the driver will disappear from every list immediately.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    setDeletionActing(true);
+    try {
+      const response = await DriverService.delete(driver._id);
+      push(response.success ? 'Driver deleted.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) {
+        onDeleted?.();
+        onClose();
+      }
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to delete driver', 'error');
+    } finally {
+      setDeletionActing(false);
+    }
+  };
 
   useEffect(() => {
     if (canReassign && driver.status === 'active') {
@@ -136,6 +198,47 @@ export default function DriverDetailModal({ driver, onClose, onReassigned }: Dri
           </div>
         </div>
       )}
+
+      <div className="mt-6 border-t border-gray-100 pt-4">
+        <h3 className="mb-2 text-sm font-semibold text-red-600">Danger Zone</h3>
+
+        {driver.deletionRequested && (
+          <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            Deletion requested by {driver.deletionRequestedByName ?? 'a manager'}
+            {driver.deletionReason && `: ${driver.deletionReason}`}
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {role === 'manager' && !driver.deletionRequested && (
+            <button
+              className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
+              onClick={handleRequestDeletion}
+              disabled={deletionActing}
+            >
+              Request Deletion
+            </button>
+          )}
+          {role === 'admin' && driver.deletionRequested && (
+            <button
+              className="btn-secondary"
+              onClick={handleDismissRequest}
+              disabled={deletionActing}
+            >
+              Dismiss Request
+            </button>
+          )}
+          {role === 'admin' && (
+            <button
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              onClick={handleDelete}
+              disabled={deletionActing}
+            >
+              Delete Driver
+            </button>
+          )}
+        </div>
+      </div>
     </Modal>
   );
 }

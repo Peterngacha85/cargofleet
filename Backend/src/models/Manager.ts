@@ -11,6 +11,9 @@ export interface IManager extends Document {
   assignedBranchId?: Types.ObjectId;
   totalDriversManaged: number;
   totalTripsOverseen: number;
+  isDeleted: boolean;
+  deletedAt?: Date;
+  deletedBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +33,9 @@ const managerSchema = new Schema<IManager>(
     assignedBranchId: { type: Schema.Types.ObjectId, ref: 'Branch' },
     totalDriversManaged: { type: Number, default: 0, min: 0 },
     totalTripsOverseen: { type: Number, default: 0, min: 0 },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletedBy: { type: String },
   },
   { timestamps: true }
 );

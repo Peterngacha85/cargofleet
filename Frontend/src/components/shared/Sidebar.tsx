@@ -9,6 +9,7 @@ export default function Sidebar() {
   const pendingDriverCount = useApprovalsStore((s) => s.pendingDriverCount);
   const pendingManagerCount = useApprovalsStore((s) => s.pendingManagerCount);
   const pendingVehicleCount = useApprovalsStore((s) => s.pendingVehicleCount);
+  const pendingDriverDeletionCount = useApprovalsStore((s) => s.pendingDriverDeletionCount);
   const scheduledTripCount = useApprovalsStore((s) => s.scheduledTripCount);
   const activePhotoCount = useApprovalsStore((s) => s.activePhotoCount);
   const links = (role && linksByRole[role]) || [];
@@ -19,7 +20,7 @@ export default function Sidebar() {
     pendingVehicleCount,
     scheduledTripCount,
     activePhotoCount,
-    pendingApprovalsCount: pendingDriverCount + pendingManagerCount,
+    pendingApprovalsCount: pendingDriverCount + pendingManagerCount + pendingDriverDeletionCount,
   };
 
   return (

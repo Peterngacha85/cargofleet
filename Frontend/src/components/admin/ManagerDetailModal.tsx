@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import Modal from '@/components/shared/Modal';
 import Avatar from '@/components/shared/Avatar';
 import DetailField from '@/components/shared/DetailField';
+import { ManagerService } from '@/services/managerService';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { confirmDialog } from '@/stores/dialogStore';
 import { Manager, ManagerUserSummary } from '@/types/manager';
 import { PopulatedBranchSummary } from '@/types/driver';
 import { formatDate, statusLabel } from '@/utils/formatters';
@@ -8,6 +12,7 @@ import { formatDate, statusLabel } from '@/utils/formatters';
 interface ManagerDetailModalProps {
   manager: Manager;
   onClose: () => void;
+  onDeleted?: () => void;
 }
 
 const statusStyles: Record<string, string> = {
@@ -17,10 +22,36 @@ const statusStyles: Record<string, string> = {
   inactive: 'bg-gray-200 text-gray-700',
 };
 
-export default function ManagerDetailModal({ manager, onClose }: ManagerDetailModalProps) {
+export default function ManagerDetailModal({ manager, onClose, onDeleted }: ManagerDetailModalProps) {
   const user = manager.userId as ManagerUserSummary;
   const branch = manager.assignedBranchId as PopulatedBranchSummary | undefined;
   const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
+  const [deleting, setDeleting] = useState(false);
+  const push = useNotificationStore((s) => s.push);
+
+  const handleDelete = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Delete manager',
+      message: `Delete ${fullName || user?.email}? This can be undone later, but they'll disappear from every list immediately.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const response = await ManagerService.delete(manager._id);
+      push(response.success ? 'Manager deleted.' : response.message, response.success ? 'success' : 'error');
+      if (response.success) {
+        onDeleted?.();
+        onClose();
+      }
+    } catch (error: any) {
+      push(error?.response?.data?.message || 'Failed to delete manager', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <Modal onClose={onClose}>
@@ -48,6 +79,17 @@ export default function ManagerDetailModal({ manager, onClose }: ManagerDetailMo
       {manager.status === 'rejected' && manager.rejectionReason && (
         <p className="mt-4 text-sm text-red-600">Rejection reason: {manager.rejectionReason}</p>
       )}
+
+      <div className="mt-6 border-t border-gray-100 pt-4">
+        <h3 className="mb-2 text-sm font-semibold text-red-600">Danger Zone</h3>
+        <button
+          className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          onClick={handleDelete}
+          disabled={deleting}
+        >
+          Delete Manager
+        </button>
+      </div>
     </Modal>
   );
 }

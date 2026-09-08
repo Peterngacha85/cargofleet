@@ -58,12 +58,14 @@ export default function DashboardPage() {
   const incrementPendingDriverCount = useApprovalsStore((s) => s.incrementPendingDriverCount);
   const incrementPendingManagerCount = useApprovalsStore((s) => s.incrementPendingManagerCount);
   const incrementPendingVehicleCount = useApprovalsStore((s) => s.incrementPendingVehicleCount);
+  const incrementPendingDriverDeletionCount = useApprovalsStore((s) => s.incrementPendingDriverDeletionCount);
   const incrementActivePhotoCount = useApprovalsStore((s) => s.incrementActivePhotoCount);
   const incrementScheduledTripCount = useApprovalsStore((s) => s.incrementScheduledTripCount);
   const decrementScheduledTripCount = useApprovalsStore((s) => s.decrementScheduledTripCount);
   const setPendingDriverCount = useApprovalsStore((s) => s.setPendingDriverCount);
   const setPendingManagerCount = useApprovalsStore((s) => s.setPendingManagerCount);
   const setPendingVehicleCount = useApprovalsStore((s) => s.setPendingVehicleCount);
+  const setPendingDriverDeletionCount = useApprovalsStore((s) => s.setPendingDriverDeletionCount);
   const setScheduledTripCount = useApprovalsStore((s) => s.setScheduledTripCount);
   const push = useNotificationStore((s) => s.push);
 
@@ -108,6 +110,7 @@ export default function DashboardPage() {
         const list = res.data?.vehicles ?? [];
         setPendingVehicleCount(list.filter((v) => v.status === 'pending_verification').length);
       });
+      DriverService.getPendingDeletion().then((res) => setPendingDriverDeletionCount(res.data?.drivers.length ?? 0));
     } else if (role === 'manager') {
       DriverService.getPendingApproval().then((res) => setPendingDriverCount(res.data?.drivers.length ?? 0));
     }
@@ -221,6 +224,13 @@ export default function DashboardPage() {
       incrementActivePhotoCount();
       push(`New photo uploaded${payload.tripNumber ? ` for trip ${payload.tripNumber}` : ''}.`, 'info');
     };
+    const handleDeletionRequested = (payload: { driverName?: string; requestedByName?: string }) => {
+      incrementPendingDriverDeletionCount();
+      push(
+        `${payload.requestedByName || 'A manager'} requested deletion of driver ${payload.driverName || ''}.`.trim(),
+        'warning'
+      );
+    };
     const handleTripAssigned = (payload: { tripNumber: string; dropoffAddress: string }) => {
       incrementScheduledTripCount();
       push(`New trip assigned: ${payload.tripNumber} to ${payload.dropoffAddress}`, 'info');
@@ -258,6 +268,7 @@ export default function DashboardPage() {
     socket.on('newManagerRegistration', handleNewManager);
     socket.on('newVehicleRegistration', handleNewVehicle);
     socket.on('newPhotoUpload', handleNewPhoto);
+    socket.on('driverDeletionRequested', handleDeletionRequested);
     socket.on('tripAssigned', handleTripAssigned);
     socket.on('tripUnassigned', handleTripUnassigned);
     socket.on('driverLocationUpdate', handleLocationUpdate);
@@ -270,6 +281,7 @@ export default function DashboardPage() {
       socket.off('newManagerRegistration', handleNewManager);
       socket.off('newVehicleRegistration', handleNewVehicle);
       socket.off('newPhotoUpload', handleNewPhoto);
+      socket.off('driverDeletionRequested', handleDeletionRequested);
       socket.off('tripAssigned', handleTripAssigned);
       socket.off('tripUnassigned', handleTripUnassigned);
       socket.off('driverLocationUpdate', handleLocationUpdate);

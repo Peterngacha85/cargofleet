@@ -21,6 +21,13 @@ export interface IDriver extends Document {
   totalEarnings: number;
   totalPaid: number;
   advanceAmount: number;
+  isDeleted: boolean;
+  deletedAt?: Date;
+  deletedBy?: string;
+  deletionRequested: boolean;
+  deletionRequestedBy?: string;
+  deletionRequestedAt?: Date;
+  deletionReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,11 +58,23 @@ const driverSchema = new Schema<IDriver>(
     totalEarnings: { type: Number, default: 0, min: 0 },
     totalPaid: { type: Number, default: 0, min: 0 },
     advanceAmount: { type: Number, default: 0, min: 0 },
+    // Soft-delete, same shape as Trip's isDeleted/deletedAt/deletedBy - keeps historical
+    // references (trips, ratings, payments) intact rather than orphaning them.
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletedBy: { type: String },
+    // A manager can flag a driver in their branch for removal, but only admin can actually
+    // delete them - these fields hold the pending request until admin reviews it.
+    deletionRequested: { type: Boolean, default: false },
+    deletionRequestedBy: { type: String },
+    deletionRequestedAt: { type: Date },
+    deletionReason: { type: String },
   },
   { timestamps: true }
 );
 
 driverSchema.index({ status: 1 });
+driverSchema.index({ deletionRequested: 1 });
 driverSchema.index({ branchId: 1 });
 driverSchema.index({ assignedVehicleId: 1 });
 driverSchema.index({ avgRating: -1 });

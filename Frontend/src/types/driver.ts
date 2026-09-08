@@ -31,6 +31,10 @@ export interface Driver {
   avgRating: number;
   totalEarnings: number;
   totalPaid?: number;
+  isDeleted?: boolean;
+  deletionRequested?: boolean;
+  deletionRequestedByName?: string;
+  deletionReason?: string;
   createdAt: string;
 }
 

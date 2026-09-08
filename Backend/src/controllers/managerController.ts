@@ -10,7 +10,7 @@ import { resolveApproverNames, approverDisplayName } from '../utils/resolveAppro
 export const listManagers = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { status, branchId } = req.query;
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { isDeleted: { $ne: true } };
     if (status) filter.status = status;
     if (branchId) filter.assignedBranchId = branchId;
 
@@ -34,7 +34,7 @@ export const listManagers = async (req: AuthenticatedRequest, res: Response) => 
 
 export const getPendingVerificationManagers = async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const managers = await Manager.find({ status: 'pending_verification' })
+    const managers = await Manager.find({ status: 'pending_verification', isDeleted: { $ne: true } })
       .populate('userId', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
 
@@ -90,6 +90,47 @@ export const verifyManagerHandler = async (req: AuthenticatedRequest, res: Respo
   } catch (error) {
     logger.error('Verify manager error', { error });
     return sendError(res, 500, 'Failed to verify manager');
+  }
+};
+
+export const deleteManagerHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { managerId } = req.params;
+
+    const manager = await Manager.findByIdAndUpdate(
+      managerId,
+      { isDeleted: true, deletedAt: new Date(), deletedBy: req.user!.id },
+      { new: true }
+    );
+    if (!manager) {
+      return sendError(res, 404, 'Manager not found');
+    }
+
+    if (manager.assignedBranchId) {
+      await Branch.findByIdAndUpdate(manager.assignedBranchId, { $pull: { managerIds: manager._id } });
+    }
+
+    return sendSuccess(res, 200, 'Manager deleted', { manager });
+  } catch (error) {
+    logger.error('Delete manager error', { error });
+    return sendError(res, 500, 'Failed to delete manager');
+  }
+};
+
+export const restoreManagerHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const manager = await Manager.findByIdAndUpdate(
+      req.params.managerId,
+      { isDeleted: false, $unset: { deletedAt: '', deletedBy: '' } },
+      { new: true }
+    );
+    if (!manager) {
+      return sendError(res, 404, 'Manager not found');
+    }
+    return sendSuccess(res, 200, 'Manager restored', { manager });
+  } catch (error) {
+    logger.error('Restore manager error', { error });
+    return sendError(res, 500, 'Failed to restore manager');
   }
 };
 

@@ -132,6 +132,11 @@ export default function DriverDirectory({ branchId }: DriverDirectoryProps) {
                   <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusStyles[driver.status]}`}>
                     {statusLabel(driver.status)}
                   </span>
+                  {driver.deletionRequested && (
+                    <span className="mt-1 ml-1 inline-block rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                      Deletion requested
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -140,7 +145,12 @@ export default function DriverDirectory({ branchId }: DriverDirectoryProps) {
       )}
 
       {selected && (
-        <DriverDetailModal driver={selected} onClose={() => setSelected(null)} onReassigned={load} />
+        <DriverDetailModal
+          driver={selected}
+          onClose={() => setSelected(null)}
+          onReassigned={load}
+          onDeleted={load}
+        />
       )}
     </>
   );

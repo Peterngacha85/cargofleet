@@ -75,6 +75,52 @@ export const reassignDriverBranch = async (driverId: string, newBranchId: string
   return driver;
 };
 
+export const requestDriverDeletion = async (driverId: string, managerId: string, reason: string) => {
+  return Driver.findByIdAndUpdate(
+    driverId,
+    {
+      deletionRequested: true,
+      deletionRequestedBy: managerId,
+      deletionRequestedAt: new Date(),
+      deletionReason: reason,
+    },
+    { new: true }
+  );
+};
+
+export const dismissDriverDeletionRequest = async (driverId: string) => {
+  return Driver.findByIdAndUpdate(
+    driverId,
+    {
+      deletionRequested: false,
+      $unset: { deletionRequestedBy: '', deletionRequestedAt: '', deletionReason: '' },
+    },
+    { new: true }
+  );
+};
+
+export const deleteDriver = async (driverId: string, deletedBy: string) => {
+  return Driver.findByIdAndUpdate(
+    driverId,
+    {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy,
+      deletionRequested: false,
+      $unset: { deletionRequestedBy: '', deletionRequestedAt: '', deletionReason: '' },
+    },
+    { new: true }
+  );
+};
+
+export const restoreDriver = async (driverId: string) => {
+  return Driver.findByIdAndUpdate(
+    driverId,
+    { isDeleted: false, $unset: { deletedAt: '', deletedBy: '' } },
+    { new: true }
+  );
+};
+
 export const assignVehicleToDriver = async (driverId: string, vehicleId: string) => {
   const driver = await Driver.findByIdAndUpdate(
     driverId,

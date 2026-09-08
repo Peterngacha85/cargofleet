@@ -37,7 +37,7 @@ export default function ManagerDirectory() {
   const [branchFilter, setBranchFilter] = useState('');
   const push = useNotificationStore((s) => s.push);
 
-  useEffect(() => {
+  const load = () => {
     ManagerService.list({})
       .then((res) => {
         setManagers(res.data?.managers ?? []);
@@ -47,7 +47,12 @@ export default function ManagerDirectory() {
         setLoadError(true);
         push(error?.response?.data?.message || 'Failed to load managers', 'error');
       });
+  };
+
+  useEffect(() => {
+    load();
     DriverService.getBranches().then((res) => setBranches(res.data?.branches ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredManagers = useMemo(() => {
@@ -124,7 +129,9 @@ export default function ManagerDirectory() {
         </div>
       )}
 
-      {selected && <ManagerDetailModal manager={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <ManagerDetailModal manager={selected} onClose={() => setSelected(null)} onDeleted={load} />
+      )}
     </>
   );
 }

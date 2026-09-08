@@ -20,5 +20,6 @@ export interface Manager {
   verifiedByName?: string;
   totalDriversManaged: number;
   totalTripsOverseen: number;
+  isDeleted?: boolean;
   createdAt: string;
 }
